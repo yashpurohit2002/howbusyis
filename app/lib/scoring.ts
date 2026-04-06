@@ -57,10 +57,12 @@ function parseAffectedRoutes(buffer: ArrayBuffer): string[] {
     .map(([route]) => route);
 }
 
-// NYC baseline: some lines are always delayed. Thresholds set high intentionally.
+// NYC baseline: the GTFS-RT alerts feed includes planned service changes posted weeks
+// in advance, so 15-20 lines "affected" is the daily norm. Only lines above 15 are
+// genuinely unusual; only above 19 is actually bad.
 function mtaChaosLevel(count: number): MtaSignalResult["chaosLevel"] {
-  if (count <= 6) return "normal";
-  if (count <= 12) return "elevated";
+  if (count <= 15) return "normal";
+  if (count <= 19) return "elevated";
   return "bad";
 }
 
@@ -97,14 +99,14 @@ export async function getMtaScore(_city: CityConfig): Promise<MtaSignalResult> {
     const affected = parseAffectedRoutes(buffer);
     const lineStatuses = makeLineStatuses(affected);
     const chaosLevel = mtaChaosLevel(affected.length);
-    // First 4 delays are baseline NYC noise — ignore them entirely.
-    // Only delays above that move the needle.
-    const significant = Math.max(0, affected.length - 4);
+    // Baseline is 13 — the GTFS-RT feed almost always shows 13-15 lines with
+    // some kind of alert (planned work counts). Only lines above 13 are real noise.
+    const significant = Math.max(0, affected.length - 13);
     const score =
       significant === 0 ? 0 :
       significant <= 4  ? Math.round((significant / 4) * 3) :
-      significant <= 9  ? 3 + Math.round(((significant - 4) / 5) * 4) :
-      /* 10+ significant */ 7 + Math.min(3, significant - 9);
+      significant <= 8  ? 3 + Math.round(((significant - 4) / 4) * 3) :
+      /* 9+ */ 6 + Math.min(4, significant - 8);
 
     return {
       label: "MTA",
@@ -375,9 +377,9 @@ export async function getEventsScore(
       byBorough[ev.borough] = (byBorough[ev.borough] ?? 0) + 1;
     }
 
-    // Normalize against NYC baseline (~15 events is a normal evening).
-    // 0 events = 0, 15 events = 5, 30+ events = 10.
-    const score = Math.min(10, Math.round(events.length / 3));
+    // Normalize against NYC baseline (~20 events is a normal evening for NYC).
+    // 0 events = 0, 20 events = 5, 40+ events = 10.
+    const score = Math.min(10, Math.round(events.length / 4));
 
     return {
       label: "Events",
@@ -398,8 +400,8 @@ export async function getEventsScore(
 // ---- NYC 311 Noise ----
 export async function getNoiseScore(city: CityConfig): Promise<SignalResult> {
   try {
-    const fortyEightHoursAgo = new Date(Date.now() - 48 * 60 * 60 * 1000);
-    const isoStr = fortyEightHoursAgo.toISOString().split(".")[0];
+    const twelveHoursAgo = new Date(Date.now() - 12 * 60 * 60 * 1000);
+    const isoStr = twelveHoursAgo.toISOString().split(".")[0];
 
     const params = new URLSearchParams({
       $where: `complaint_type like '%Noise%' AND created_date > '${isoStr}'`,
@@ -415,13 +417,14 @@ export async function getNoiseScore(city: CityConfig): Promise<SignalResult> {
     const data = await res.json();
     const count = parseInt(data?.[0]?.cnt ?? "0", 10);
 
-    const score = Math.min(10, Math.round((count / 800) * 10));
+    // ~50 complaints/12h = quiet, ~150 = loud, 250+ = chaos
+    const score = Math.min(10, Math.round((count / 250) * 10));
     return {
       label: "311 Noise",
       detail:
         count === 0
           ? "Eerily quiet"
-          : `${count} noise complaint${count === 1 ? "" : "s"} (last 48h)`,
+          : `${count} noise complaint${count === 1 ? "" : "s"} (last 12h)`,
       score,
     };
   } catch {
@@ -500,7 +503,8 @@ export async function getCitiBikeScore(): Promise<CitiBikeSignalResult> {
     }
 
     const availabilityPct = totalDocks > 0 ? Math.round((totalBikes / totalDocks) * 100) : 50;
-    const mobilityScore = Math.max(0, Math.min(10, Math.round(((100 - availabilityPct) / 70) * 10)));
+    // 50% availability = normal (score 5). 90%+ = nobody riding (score 1). 10% = city is moving (score 9).
+    const mobilityScore = Math.max(0, Math.min(10, Math.round((100 - availabilityPct) / 10)));
 
     const regions: CitiBikeSignalResult["regions"] = CITIBIKE_REGIONS
       .filter((r) => regionTotals.has(r.name))

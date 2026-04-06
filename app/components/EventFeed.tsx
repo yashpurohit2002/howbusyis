@@ -52,7 +52,22 @@ export function EventFeed({ events, textClass }: Props) {
     );
   }
 
-  const bigEvents = events.filter((e) => e.crowdSize === "Packed" && isMajorVenue(e.venue));
+  // Deduplicate: same name at the same venue = one row + a count badge
+  const seen = new Map<string, { event: EventItem; count: number }>();
+  for (const ev of events) {
+    const key = `${ev.name.toLowerCase().trim()}|${ev.venue.toLowerCase().trim()}`;
+    const existing = seen.get(key);
+    if (existing) {
+      existing.count += 1;
+    } else {
+      seen.set(key, { event: ev, count: 1 });
+    }
+  }
+  const deduped = Array.from(seen.values());
+
+  const bigEvents = deduped
+    .filter(({ event: e }) => e.crowdSize === "Packed" && isMajorVenue(e.venue))
+    .map(({ event }) => event);
 
   return (
     <div className="bg-white/5 border border-white/10 rounded-2xl overflow-hidden">
@@ -67,32 +82,33 @@ export function EventFeed({ events, textClass }: Props) {
         </div>
       )}
       <div className="max-h-72 overflow-y-auto divide-y divide-white/5">
-        {events.map((ev) => {
+        {deduped.map(({ event: ev, count }) => {
           const crowd = CROWD_CONFIG[ev.crowdSize];
           const major = isMajorVenue(ev.venue);
           return (
             <div key={ev.id} className={`px-4 py-3 hover:bg-white/5 transition-colors ${major && ev.crowdSize === "Packed" ? "border-l-2 border-orange-700/60" : ""}`}>
               <div className="flex items-start justify-between gap-2">
                 <div className="min-w-0 flex-1">
-                  {/* Event name -- link to TM if available */}
-                  {ev.url ? (
-                    <a
-                      href={ev.url}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="text-sm font-medium text-white hover:text-white/70 transition-colors truncate block"
-                    >
-                      {ev.name} ↗
-                    </a>
-                  ) : (
-                    <p className="text-sm font-medium text-white truncate">{ev.name}</p>
-                  )}
-                  <p className="text-xs text-white/40 truncate">
-                    {ev.venue}
-                    {ev.source === "nyc-open-data" && (
-                      <span className="ml-1.5 text-[10px] text-white/25">NYC permit</span>
+                  <div className="flex items-center gap-1.5">
+                    {ev.url ? (
+                      <a
+                        href={ev.url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-sm font-medium text-white hover:text-white/70 transition-colors truncate"
+                      >
+                        {ev.name} ↗
+                      </a>
+                    ) : (
+                      <p className="text-sm font-medium text-white truncate">{ev.name}</p>
                     )}
-                  </p>
+                    {count > 1 && (
+                      <span className="shrink-0 text-[10px] px-1.5 py-0.5 rounded-full bg-white/10 text-white/40">
+                        x{count}
+                      </span>
+                    )}
+                  </div>
+                  <p className="text-xs text-white/40 truncate">{ev.venue}</p>
                 </div>
                 <div className="shrink-0 text-right space-y-1">
                   <p className={`text-xs font-medium ${textClass}`}>{ev.startTime}</p>
@@ -113,8 +129,6 @@ export function EventFeed({ events, textClass }: Props) {
                     </div>
                   </div>
                 )}
-
-                {/* Directions link */}
                 {ev.address && ev.address.trim().length > 3 && (
                   <a
                     href={mapsUrl(`${ev.venue}, ${ev.address}`)}
