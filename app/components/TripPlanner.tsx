@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef, useEffect, useCallback } from "react";
+import { useState, useRef, useEffect } from "react";
 import { MtaSignalResult, LineStatusEntry } from "@/app/lib/types";
 import { NEIGHBORHOOD_LINES, findRoute, LINE_COLORS } from "@/app/lib/nyc-data";
 import {
@@ -73,13 +73,36 @@ function LinePill({ line, status }: { line: string; status?: LineStatusEntry }) 
   );
 }
 
-// ── Autocomplete input ────────────────────────────────────────────────────────
+// ── Google Maps loader ────────────────────────────────────────────────────────
 
 interface Suggestion { displayName: string; lat: number; lon: number }
 
-function shortName(displayName: string): string {
-  return displayName.split(",").slice(0, 2).join(",").trim();
+let mapsLoadPromise: Promise<void> | null = null;
+function loadGoogleMaps(): Promise<void> {
+  if (typeof window === "undefined") return Promise.resolve();
+  if (window.google?.maps?.places) return Promise.resolve();
+  if (mapsLoadPromise) return mapsLoadPromise;
+  mapsLoadPromise = new Promise((resolve, reject) => {
+    const key = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY;
+    if (!key) { reject(new Error("No Google Maps API key")); return; }
+    const script = document.createElement("script");
+    script.src = `https://maps.googleapis.com/maps/api/js?key=${key}&libraries=places`;
+    script.async = true;
+    script.defer = true;
+    script.onload = () => resolve();
+    script.onerror = () => reject(new Error("Failed to load Google Maps"));
+    document.head.appendChild(script);
+  });
+  return mapsLoadPromise;
 }
+
+// NYC bounds for restricting suggestions
+const NYC_BOUNDS = {
+  north: 40.917577, south: 40.477399,
+  east: -73.700272, west: -74.259090,
+};
+
+// ── Place input with Google Places Autocomplete ───────────────────────────────
 
 interface PlaceInputProps {
   label: string;
@@ -89,75 +112,49 @@ interface PlaceInputProps {
 }
 
 function PlaceInput({ label, value, onChange, placeholder }: PlaceInputProps) {
-  const [suggestions, setSuggestions] = useState<Suggestion[]>([]);
-  const [open, setOpen] = useState(false);
-  const [activeIdx, setActiveIdx] = useState(-1);
-  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const containerRef = useRef<HTMLDivElement>(null);
-
-  const fetchSuggestions = useCallback(async (q: string) => {
-    if (q.trim().length < 2) { setSuggestions([]); setOpen(false); return; }
-    try {
-      const res = await fetch(`/api/geocode?suggest=1&q=${encodeURIComponent(q)}`);
-      if (!res.ok) { setSuggestions([]); return; }
-      const data: Suggestion[] = await res.json();
-      setSuggestions(Array.isArray(data) ? data : []);
-      setOpen(Array.isArray(data) && data.length > 0);
-      setActiveIdx(-1);
-    } catch { setSuggestions([]); }
-  }, []);
-
-  const handleChange = (v: string) => {
-    onChange(v); // clear cached geo when user types manually
-    if (debounceRef.current) clearTimeout(debounceRef.current);
-    debounceRef.current = setTimeout(() => fetchSuggestions(v), 300);
-  };
-
-  const select = (s: Suggestion) => {
-    onChange(s.displayName, s); // pass full suggestion with coords
-    setSuggestions([]);
-    setOpen(false);
-  };
+  const inputRef = useRef<HTMLInputElement>(null);
+  const autocompleteRef = useRef<google.maps.places.Autocomplete | null>(null);
 
   useEffect(() => {
-    const handler = (e: MouseEvent) => {
-      if (containerRef.current && !containerRef.current.contains(e.target as Node)) setOpen(false);
+    loadGoogleMaps().then(() => {
+      if (!inputRef.current || autocompleteRef.current) return;
+      const ac = new google.maps.places.Autocomplete(inputRef.current, {
+        bounds: NYC_BOUNDS,
+        strictBounds: true,
+        fields: ["geometry", "name", "formatted_address"],
+      });
+      autocompleteRef.current = ac;
+      ac.addListener("place_changed", () => {
+        const place = ac.getPlace();
+        if (!place.geometry?.location) return;
+        const lat = place.geometry.location.lat();
+        const lon = place.geometry.location.lng();
+        const displayName = place.name && place.formatted_address
+          ? `${place.name}, ${place.formatted_address.split(",").slice(0, 2).join(",")}`
+          : (place.formatted_address ?? place.name ?? "");
+        onChange(displayName, { lat, lon, displayName });
+      });
+    }).catch(() => { /* fall through — user can still type and geocode on plan */ });
+
+    return () => {
+      if (autocompleteRef.current) {
+        google.maps.event.clearInstanceListeners(autocompleteRef.current);
+        autocompleteRef.current = null;
+      }
     };
-    document.addEventListener("mousedown", handler);
-    return () => document.removeEventListener("mousedown", handler);
-  }, []);
+  }, [onChange]);
 
   return (
-    <div className="flex-1 min-w-0 relative" ref={containerRef}>
+    <div className="flex-1 min-w-0">
       <label className="text-xs text-white/40 block mb-1">{label}</label>
       <input
+        ref={inputRef}
         className="w-full bg-white/5 border border-white/10 rounded-xl px-3 py-2.5 text-sm text-white placeholder-white/25 focus:outline-none focus:border-white/30 focus:bg-white/8"
         placeholder={placeholder}
         value={value}
-        onChange={(e) => handleChange(e.target.value)}
-        onFocus={() => suggestions.length > 0 && setOpen(true)}
-        onKeyDown={(e) => {
-          if (!open) return;
-          if (e.key === "ArrowDown") { e.preventDefault(); setActiveIdx((i) => Math.min(i + 1, suggestions.length - 1)); }
-          else if (e.key === "ArrowUp") { e.preventDefault(); setActiveIdx((i) => Math.max(i - 1, 0)); }
-          else if (e.key === "Enter" && activeIdx >= 0) { e.preventDefault(); select(suggestions[activeIdx]); }
-          else if (e.key === "Escape") setOpen(false);
-        }}
+        onChange={(e) => onChange(e.target.value)}
         autoComplete="off"
       />
-      {open && suggestions.length > 0 && (
-        <ul className="absolute z-50 top-full mt-1 w-full bg-zinc-900 border border-white/10 rounded-xl shadow-xl overflow-hidden">
-          {suggestions.map((s, i) => (
-            <li
-              key={i}
-              className={`px-3 py-2.5 text-sm cursor-pointer transition-colors ${i === activeIdx ? "bg-white/10 text-white" : "text-white/70 hover:bg-white/8 hover:text-white"}`}
-              onMouseDown={(e) => { e.preventDefault(); select(s); }}
-            >
-              {shortName(s.displayName)}
-            </li>
-          ))}
-        </ul>
-      )}
     </div>
   );
 }
@@ -272,8 +269,8 @@ export function TripPlanner({ mta, onHighlight }: Props) {
           distM: totalDistM,
         });
         setResult({
-          fromDisplay: shortName(fromGeo.displayName),
-          toDisplay: shortName(toGeo.displayName),
+          fromDisplay: fromGeo.displayName.split(",").slice(0, 2).join(",").trim(),
+          toDisplay: toGeo.displayName.split(",").slice(0, 2).join(",").trim(),
           fromGeo,
           toGeo,
           walkable: true,
@@ -428,8 +425,8 @@ export function TripPlanner({ mta, onHighlight }: Props) {
 
       onHighlight(allLines);
       setResult({
-        fromDisplay: shortName(fromGeo.displayName),
-        toDisplay: shortName(toGeo.displayName),
+        fromDisplay: fromGeo.displayName.split(",").slice(0, 2).join(",").trim(),
+        toDisplay: toGeo.displayName.split(",").slice(0, 2).join(",").trim(),
         fromGeo,
         toGeo,
         walkable: false,
