@@ -31,9 +31,9 @@ export function computeGoOutVerdict(data: BusyResponse): GoOutVerdict {
 
   if (isBlizzard || isHurricane || isDangerousCold) {
     const reason =
-      isBlizzard ? "Blizzard conditions. Seriously, stay inside." :
-      isHurricane ? "Severe storm. This is not a normal rainy day." :
-      "Dangerously cold. Frostbite risk is real. Stay in.";
+      isBlizzard ? "Actual blizzard out there. Nature wins today." :
+      isHurricane ? "Severe storm rolling through. This one's real." :
+      "Dangerously cold, like record-breaking cold. The city will be there tomorrow.";
     return { verdict: "STAY HOME", reason, color: "text-red-400" };
   }
 
@@ -41,66 +41,64 @@ export function computeGoOutVerdict(data: BusyResponse): GoOutVerdict {
   if (weatherScore >= 7) {
     return {
       verdict: "MAYBE",
-      reason: "Rough weather out there. Go if you have to, but don't make unnecessary trips.",
+      reason: "Weather's rough today. Still doable, just bring an umbrella and accept you'll get a little wet.",
       color: "text-orange-400",
     };
   }
   if (score >= 68) {
     return {
       verdict: "MAYBE",
-      reason: "Busy out there, but NYC is always busy. Fine if you have somewhere to be.",
+      reason: "City's fired up right now. If you're down for the energy, go. If not, great night to order in.",
       color: "text-orange-400",
     };
   }
   if (eventsScore >= 8) {
     return {
       verdict: "MAYBE",
-      reason: "Half of NYC had the same plan today. Expect crowds near major venues.",
+      reason: "Tons of events tonight. The city's packed but that's kind of the point.",
       color: "text-yellow-400",
     };
   }
   if (weatherScore >= 4) {
     return {
       verdict: "MAYBE",
-      reason: "Not great weather, not terrible. Bring a layer and decide when you get outside.",
+      reason: "Decent enough out. Grab a layer, get outside, see how you feel.",
       color: "text-yellow-400",
     };
   }
 
   // ── YES ────────────────────────────────────────────────────────────────────
-  // Normal MTA delays ("elevated" or "normal") are never a reason to stay in.
-  // Some lines are always delayed. That's just NYC.
   if (isDeepNight) {
     return {
       verdict: "YES",
-      reason: "It's late but it's NYC. City's calm. Go do something weird.",
+      reason: "Late night in NYC hits different. City's yours right now.",
       color: "text-emerald-400",
     };
   }
   if (score <= 25) {
     return {
       verdict: "YES",
-      reason: "The city is unusually calm right now. Enjoy it. It won't last.",
+      reason: "Unusually chill out there. Rare NYC moment. Catch it.",
       color: "text-emerald-400",
     };
   }
-  if (mtaChaos === "elevated") {
+  if (mtaChaos === "elevated" || mtaChaos === "bad") {
     return {
       verdict: "YES",
-      reason: "A few lines are slow but that's just Tuesday. Check your route and go.",
+      reason: "Trains are doing their thing. Check your route and go. It's always worth it.",
       color: "text-emerald-400",
     };
   }
   if (isRushHour) {
     return {
       verdict: "YES",
-      reason: "Rush hour, but the city is manageable. Leave a little buffer and you're fine.",
+      reason: "Rush hour energy. Leave a little buffer and you're golden.",
       color: "text-emerald-400",
     };
   }
   return {
     verdict: "YES",
-    reason: "Good time to be out. Weather's fine, trains are moving. Go.",
+    reason: "Solid time to be out. Go touch some city.",
     color: "text-emerald-400",
   };
 }

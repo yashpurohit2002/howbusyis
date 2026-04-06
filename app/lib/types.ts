@@ -131,8 +131,8 @@ export interface VerdictLevel {
 
 export const VERDICTS: VerdictLevel[] = [
   {
-    label: "Dead quiet.",
-    subtitle: "Did everyone leave?",
+    label: "Ghost town.",
+    subtitle: "Your move, explorer.",
     color: "#3b82f6",
     bg: "from-blue-950 to-blue-900",
     text: "text-blue-400",
@@ -141,7 +141,7 @@ export const VERDICTS: VerdictLevel[] = [
   },
   {
     label: "Chill.",
-    subtitle: "NYC is being reasonable today.",
+    subtitle: "NYC is being reasonable. Enjoy it.",
     color: "#22c55e",
     bg: "from-emerald-950 to-emerald-900",
     text: "text-emerald-400",
@@ -150,7 +150,7 @@ export const VERDICTS: VerdictLevel[] = [
   },
   {
     label: "Buzzing.",
-    subtitle: "Normal NYC chaos.",
+    subtitle: "The city's got a pulse tonight.",
     color: "#eab308",
     bg: "from-yellow-950 to-yellow-900",
     text: "text-yellow-400",
@@ -159,7 +159,7 @@ export const VERDICTS: VerdictLevel[] = [
   },
   {
     label: "Hectic.",
-    subtitle: "Touch grass tomorrow.",
+    subtitle: "This is what you came for.",
     color: "#f97316",
     bg: "from-orange-950 to-orange-900",
     text: "text-orange-400",
@@ -168,7 +168,7 @@ export const VERDICTS: VerdictLevel[] = [
   },
   {
     label: "Pure chaos.",
-    subtitle: "Godspeed.",
+    subtitle: "Best stories start like this.",
     color: "#ef4444",
     bg: "from-red-950 to-red-900",
     text: "text-red-400",
