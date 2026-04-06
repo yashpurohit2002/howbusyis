@@ -309,7 +309,12 @@ export async function getEventsScore(
     if (!res.ok) throw new Error(`Ticketmaster ${res.status}`);
     const data = await res.json();
 
-    const rawEvents = data._embedded?.events ?? [];
+    const YOUTH_KEYWORDS = /\b(youth|junior|u\d{1,2}|under \d+|\d+ and under|little league|kids|children|peewee|pee.?wee|age \d|u-\d)\b/i;
+
+    const rawEvents = (data._embedded?.events ?? []).filter(
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      (e: any) => !YOUTH_KEYWORDS.test(e.name ?? "")
+    );
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const tmEvents: EventItem[] = rawEvents.slice(0, 20).map((e: any) => {
