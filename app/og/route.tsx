@@ -1,7 +1,8 @@
 import { ImageResponse } from "next/og";
 import { getVerdict, BusyResponse } from "@/app/lib/types";
 
-export const runtime = "edge";
+// Node runtime — ImageResponse async stream works reliably here
+export const runtime = "nodejs";
 
 const COLOR_MAP: Record<string, string> = {
   "text-blue-400":    "#60a5fa",
@@ -18,50 +19,38 @@ const BG_MAP: Record<string, [string, string]> = {
   "from-red-950 to-red-900":         ["#1a0202", "#450a0a"],
 };
 
-async function getDataFast(origin: string): Promise<BusyResponse | null> {
-  // Try KV directly first — avoids the full API fanout and is ~10x faster
+async function getDataFast(): Promise<BusyResponse | null> {
+  // Read busy:nyc directly from KV — skips the full API fanout
   const kvUrl = process.env.KV_REST_API_URL;
   const kvToken = process.env.KV_REST_API_TOKEN;
   if (kvUrl && kvToken) {
     try {
-      const res = await fetch(`${kvUrl}/get/busy:nyc`, {
+      const key = encodeURIComponent("busy:nyc");
+      const res = await fetch(`${kvUrl}/get/${key}`, {
         headers: { Authorization: `Bearer ${kvToken}` },
-        signal: AbortSignal.timeout(1500),
+        signal: AbortSignal.timeout(2000),
       });
       if (res.ok) {
         const json = await res.json();
         const value = json.result;
         if (value) {
-          const parsed: BusyResponse = typeof value === "string" ? JSON.parse(value) : value;
-          return parsed;
+          return typeof value === "string" ? JSON.parse(value) : value as BusyResponse;
         }
       }
     } catch {
-      // fall through to HTTP fetch
+      // fall through
     }
   }
-
-  // Fallback: HTTP fetch with short timeout
-  try {
-    const res = await fetch(`${origin}/api/busy?city=nyc`, {
-      signal: AbortSignal.timeout(3000),
-    });
-    if (res.ok) return res.json();
-  } catch {
-    // fall through to defaults
-  }
-
   return null;
 }
 
-export async function GET(request: Request) {
-  const origin = new URL(request.url).origin;
+export async function GET() {
   let score = 50;
   let weather = "";
   let mta = "";
   let events = "";
 
-  const data = await getDataFast(origin);
+  const data = await getDataFast();
   if (data) {
     score = data.score;
     weather = data.signals.weather.description ?? "";
@@ -82,7 +71,7 @@ export async function GET(request: Request) {
     events  && { icon: "📅", value: events },
   ].filter(Boolean) as { icon: string; value: string }[];
 
-  return new ImageResponse(
+  const img = new ImageResponse(
     (
       <div
         style={{
@@ -97,12 +86,10 @@ export async function GET(request: Request) {
           padding: "56px 80px",
         }}
       >
-        {/* Domain */}
         <div style={{ fontSize: "22px", color: "#6b7280", letterSpacing: "0.18em", textTransform: "uppercase", marginBottom: "28px" }}>
           howbusy.is/nyc
         </div>
 
-        {/* Score */}
         <div style={{ display: "flex", alignItems: "flex-end", gap: "10px", marginBottom: "10px" }}>
           <span style={{ fontSize: "200px", fontWeight: 900, color: "white", lineHeight: 1 }}>
             {score}
@@ -112,22 +99,18 @@ export async function GET(request: Request) {
           </span>
         </div>
 
-        {/* Score bar */}
         <div style={{ width: "520px", height: "8px", background: "rgba(255,255,255,0.1)", borderRadius: "9999px", overflow: "hidden", marginBottom: "28px" }}>
           <div style={{ width: `${score}%`, height: "100%", background: accent, borderRadius: "9999px" }} />
         </div>
 
-        {/* Verdict */}
         <div style={{ fontSize: "72px", fontWeight: 900, color: accent, lineHeight: 1, marginBottom: "10px", textAlign: "center" }}>
           {verdict.label}
         </div>
 
-        {/* Subtitle */}
         <div style={{ fontSize: "28px", color: "#9ca3af", marginBottom: "36px", textAlign: "center" }}>
           {verdict.subtitle}
         </div>
 
-        {/* Pills */}
         {pills.length > 0 && (
           <div style={{ display: "flex", gap: "16px", flexWrap: "wrap", justifyContent: "center" }}>
             {pills.map((b) => (
@@ -140,12 +123,15 @@ export async function GET(request: Request) {
         )}
       </div>
     ),
-    {
-      width: 1200,
-      height: 630,
-      headers: {
-        "Cache-Control": "public, max-age=300, s-maxage=300, stale-while-revalidate=60",
-      },
-    }
+    { width: 1200, height: 630 }
   );
+
+  // Read the full body before returning so we can attach headers cleanly
+  const buf = await img.arrayBuffer();
+  return new Response(buf, {
+    headers: {
+      "Content-Type": "image/png",
+      "Cache-Control": "public, s-maxage=300, stale-while-revalidate=60",
+    },
+  });
 }
