@@ -6,7 +6,6 @@ interface Props {
 
 const VERDICT_STYLE = {
   YES:        { emoji: "🟢", bg: "bg-emerald-950", border: "border-emerald-800" },
-  MAYBE:      { emoji: "🟡", bg: "bg-yellow-950",  border: "border-yellow-800" },
   "STAY HOME":{ emoji: "❄️",  bg: "bg-red-950",     border: "border-red-800" },
 };
 

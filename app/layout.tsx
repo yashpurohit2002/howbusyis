@@ -14,10 +14,15 @@ const geistMono = Geist_Mono({
 
 export const metadata: Metadata = {
   metadataBase: new URL(
-    process.env.NEXT_PUBLIC_BASE_URL ?? "https://howbusyis.nyc"
+    process.env.NEXT_PUBLIC_BASE_URL ?? "https://howbusyisnyc.yashpurohit.me"
   ),
   title: "howbusy.is/nyc",
   description: "How busy is NYC right now?",
+  appleWebApp: {
+    capable: true,
+    title: "howbusy.is/nyc",
+    statusBarStyle: "black-translucent",
+  },
 };
 
 export default function RootLayout({

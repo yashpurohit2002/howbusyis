@@ -42,11 +42,12 @@ async function fetchBusyData(): Promise<BusyResponse | null> {
 export async function generateMetadata(): Promise<Metadata> {
   const data = await fetchBusyData();
   const score = data?.score ?? 50;
-  const weather = data?.signals.weather.label ?? "";
-  const mta = data?.signals.mta.label ?? "";
+  const weather = data?.signals.weather.description ?? data?.signals.weather.label ?? "";
+  const mtaDelays = data?.signals.mta.delayedLines?.length ?? 0;
+  const mta = mtaDelays > 0 ? `${mtaDelays} delay${mtaDelays > 1 ? "s" : ""}` : "Subway clear";
   const events = data?.signals.events.totalToday
     ? `${data.signals.events.totalToday} events`
-    : (data?.signals.events.label ?? "");
+    : "";
 
   const params = new URLSearchParams({
     score: String(score),
