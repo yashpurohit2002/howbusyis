@@ -324,7 +324,19 @@ export async function getEventsScore(
       const neighborhood = inferNeighborhood(venueName, venueCity);
       const nhoodData = NEIGHBORHOOD_LINES[neighborhood] ?? NEIGHBORHOOD_LINES["midtown"];
       const capacity: number | undefined = e._embedded?.venues?.[0]?.capacity;
-      const startUtc: string = e.dates?.start?.dateTime ?? new Date().toISOString();
+      // Prefer localDate+localTime (already in venue timezone) over dateTime (UTC)
+      const localTime: string = e.dates?.start?.localTime ?? "";
+      let startTime = "TBD";
+      if (localTime) {
+        const [h, m] = localTime.split(":").map(Number);
+        const hour12 = h % 12 || 12;
+        const ampm = h < 12 ? "AM" : "PM";
+        startTime = `${hour12}:${String(m).padStart(2, "0")} ${ampm}`;
+      } else if (e.dates?.start?.dateTime) {
+        startTime = new Date(e.dates.start.dateTime).toLocaleTimeString("en-US", {
+          hour: "numeric", minute: "2-digit", hour12: true, timeZone: city.timezoneTZ,
+        });
+      }
 
       return {
         id: e.id,
@@ -332,12 +344,7 @@ export async function getEventsScore(
         venue: venueName || "NYC Venue",
         neighborhood,
         borough,
-        startTime: new Date(startUtc).toLocaleTimeString("en-US", {
-          hour: "numeric",
-          minute: "2-digit",
-          hour12: true,
-          timeZone: city.timezoneTZ,
-        }),
+        startTime,
         crowdSize: crowdBucket(capacity),
         lines: nhoodData?.lines ?? [],
         url: e.url ?? undefined,

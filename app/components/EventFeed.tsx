@@ -88,12 +88,13 @@ export function EventFeed({ events, textClass }: Props) {
                 )}
 
                 {/* Directions link */}
-                {ev.address && (
+                {ev.address && ev.address.trim().length > 3 && (
                   <a
-                    href={mapsUrl(ev.address)}
+                    href={mapsUrl(`${ev.venue}, ${ev.address}`)}
                     target="_blank"
                     rel="noopener noreferrer"
                     className="text-[10px] text-white/25 hover:text-white/50 transition-colors ml-auto"
+                    onClick={(e) => e.stopPropagation()}
                   >
                     Directions
                   </a>
