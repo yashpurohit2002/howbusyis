@@ -132,15 +132,63 @@ export interface VerdictLevel {
   border: string;
 }
 
+// 20 bands, 5 points each. Index 0 = 0-4, index 19 = 95-100.
 export const VERDICTS: VerdictLevel[] = [
+  // ── Blue: 0-19 (dead quiet) ──────────────────────────────────────────────
   {
-    label: "Ghost town.",
-    subtitle: "Your move, explorer.",
+    label: "Empty.",
+    subtitle: "Even the pigeons stayed home.",
     color: "#3b82f6",
     bg: "from-blue-950 to-blue-900",
     text: "text-blue-400",
     bar: "bg-blue-400",
     border: "border-blue-800",
+  },
+  {
+    label: "Hollow.",
+    subtitle: "You could hear Canal Street echo.",
+    color: "#3b82f6",
+    bg: "from-blue-950 to-blue-900",
+    text: "text-blue-400",
+    bar: "bg-blue-400",
+    border: "border-blue-800",
+  },
+  {
+    label: "Quiet.",
+    subtitle: "NYC is catching its breath.",
+    color: "#3b82f6",
+    bg: "from-blue-950 to-blue-900",
+    text: "text-blue-400",
+    bar: "bg-blue-400",
+    border: "border-blue-800",
+  },
+  {
+    label: "Slow.",
+    subtitle: "A rare window. Take it.",
+    color: "#3b82f6",
+    bg: "from-blue-950 to-blue-900",
+    text: "text-blue-400",
+    bar: "bg-blue-400",
+    border: "border-blue-800",
+  },
+  // ── Emerald: 20-39 (chill) ───────────────────────────────────────────────
+  {
+    label: "Relaxed.",
+    subtitle: "The city is being polite. Suspicious.",
+    color: "#22c55e",
+    bg: "from-emerald-950 to-emerald-900",
+    text: "text-emerald-400",
+    bar: "bg-emerald-400",
+    border: "border-emerald-800",
+  },
+  {
+    label: "Mellow.",
+    subtitle: "Good day to actually move around.",
+    color: "#22c55e",
+    bg: "from-emerald-950 to-emerald-900",
+    text: "text-emerald-400",
+    bar: "bg-emerald-400",
+    border: "border-emerald-800",
   },
   {
     label: "Chill.",
@@ -152,8 +200,18 @@ export const VERDICTS: VerdictLevel[] = [
     border: "border-emerald-800",
   },
   {
-    label: "Buzzing.",
-    subtitle: "The city's got a pulse tonight.",
+    label: "Steady.",
+    subtitle: "Normal. For New York, that's saying something.",
+    color: "#22c55e",
+    bg: "from-emerald-950 to-emerald-900",
+    text: "text-emerald-400",
+    bar: "bg-emerald-400",
+    border: "border-emerald-800",
+  },
+  // ── Yellow: 40-59 (building energy) ─────────────────────────────────────
+  {
+    label: "Alive.",
+    subtitle: "Things are starting to stir.",
     color: "#eab308",
     bg: "from-yellow-950 to-yellow-900",
     text: "text-yellow-400",
@@ -161,13 +219,87 @@ export const VERDICTS: VerdictLevel[] = [
     border: "border-yellow-800",
   },
   {
-    label: "Hectic.",
-    subtitle: "This is what you came for.",
+    label: "Movin'.",
+    subtitle: "The city's finding its rhythm.",
+    color: "#eab308",
+    bg: "from-yellow-950 to-yellow-900",
+    text: "text-yellow-400",
+    bar: "bg-yellow-400",
+    border: "border-yellow-800",
+  },
+  {
+    label: "Buzzin'.",
+    subtitle: "Mid-level NYC energy. Everyone's doing something.",
+    color: "#eab308",
+    bg: "from-yellow-950 to-yellow-900",
+    text: "text-yellow-400",
+    bar: "bg-yellow-400",
+    border: "border-yellow-800",
+  },
+  {
+    label: "Poppin'.",
+    subtitle: "You can feel it picking up.",
+    color: "#eab308",
+    bg: "from-yellow-950 to-yellow-900",
+    text: "text-yellow-400",
+    bar: "bg-yellow-400",
+    border: "border-yellow-800",
+  },
+  // ── Orange: 60-79 (hectic) ───────────────────────────────────────────────
+  {
+    label: "Busy.",
+    subtitle: "Classic New York. No complaints.",
     color: "#f97316",
     bg: "from-orange-950 to-orange-900",
     text: "text-orange-400",
     bar: "bg-orange-400",
     border: "border-orange-800",
+  },
+  {
+    label: "Packed.",
+    subtitle: "Everyone had the same idea.",
+    color: "#f97316",
+    bg: "from-orange-950 to-orange-900",
+    text: "text-orange-400",
+    bar: "bg-orange-400",
+    border: "border-orange-800",
+  },
+  {
+    label: "Hectic.",
+    subtitle: "This is what you signed up for.",
+    color: "#f97316",
+    bg: "from-orange-950 to-orange-900",
+    text: "text-orange-400",
+    bar: "bg-orange-400",
+    border: "border-orange-800",
+  },
+  {
+    label: "Wild.",
+    subtitle: "Hold tight.",
+    color: "#f97316",
+    bg: "from-orange-950 to-orange-900",
+    text: "text-orange-400",
+    bar: "bg-orange-400",
+    border: "border-orange-800",
+  },
+  // ── Red: 80-100 (chaos) ──────────────────────────────────────────────────
+  {
+    label: "Slammed.",
+    subtitle: "The city is going all out tonight.",
+    color: "#ef4444",
+    bg: "from-red-950 to-red-900",
+    text: "text-red-400",
+    bar: "bg-red-400",
+    border: "border-red-800",
+  },
+  {
+    label: "Unhinged.",
+    subtitle: "NYC at full volume.",
+    color: "#ef4444",
+    bg: "from-red-950 to-red-900",
+    text: "text-red-400",
+    bar: "bg-red-400",
+    border: "border-red-800",
   },
   {
     label: "Pure chaos.",
@@ -178,12 +310,18 @@ export const VERDICTS: VerdictLevel[] = [
     bar: "bg-red-400",
     border: "border-red-800",
   },
+  {
+    label: "Unreal.",
+    subtitle: "The city has completely lost the plot. Beautifully.",
+    color: "#ef4444",
+    bg: "from-red-950 to-red-900",
+    text: "text-red-400",
+    bar: "bg-red-400",
+    border: "border-red-800",
+  },
 ];
 
 export function getVerdict(score: number): VerdictLevel {
-  if (score <= 20) return VERDICTS[0];
-  if (score <= 40) return VERDICTS[1];
-  if (score <= 60) return VERDICTS[2];
-  if (score <= 80) return VERDICTS[3];
-  return VERDICTS[4];
+  const idx = Math.min(19, Math.floor(score / 5));
+  return VERDICTS[idx];
 }
