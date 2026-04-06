@@ -14,6 +14,7 @@ export interface GeocodeResult {
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
   const q = (searchParams.get("q") ?? "").trim();
+  const suggest = searchParams.get("suggest") === "1";
 
   if (!q) {
     return NextResponse.json({ error: "Missing query" }, { status: 400 });
@@ -28,7 +29,7 @@ export async function GET(request: Request) {
     const params = new URLSearchParams({
       q: query,
       format: "jsonv2",
-      limit: "1",
+      limit: suggest ? "6" : "1",
       viewbox: NYC_VIEWBOX,
       bounded: "1",
       addressdetails: "0",
@@ -53,6 +54,17 @@ export async function GET(request: Request) {
         { error: `Could not find "${q}" in NYC. Try a more specific address.` },
         { status: 404 }
       );
+    }
+
+    if (suggest) {
+      const results: GeocodeResult[] = data.map((item: { lat: string; lon: string; display_name?: string }) => ({
+        lat: parseFloat(item.lat),
+        lon: parseFloat(item.lon),
+        displayName: item.display_name ?? q,
+      }));
+      return NextResponse.json(results, {
+        headers: { "Cache-Control": "public, max-age=300" },
+      });
     }
 
     const top = data[0];

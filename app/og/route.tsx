@@ -10,12 +10,12 @@ const COLOR_MAP: Record<string, string> = {
   "text-orange-400":  "#fb923c",
   "text-red-400":     "#f87171",
 };
-const BG_MAP: Record<string, string> = {
-  "from-blue-950 to-blue-900":    "#172554",
-  "from-emerald-950 to-emerald-900": "#022c22",
-  "from-yellow-950 to-yellow-900":   "#422006",
-  "from-orange-950 to-orange-900":   "#431407",
-  "from-red-950 to-red-900":         "#450a0a",
+const BG_MAP: Record<string, [string, string]> = {
+  "from-blue-950 to-blue-900":       ["#0f172a", "#1e3a5f"],
+  "from-emerald-950 to-emerald-900": ["#022c22", "#064e3b"],
+  "from-yellow-950 to-yellow-900":   ["#1c1002", "#422006"],
+  "from-orange-950 to-orange-900":   ["#1a0a02", "#431407"],
+  "from-red-950 to-red-900":         ["#1a0202", "#450a0a"],
 };
 
 export async function GET(request: Request) {
@@ -27,55 +27,163 @@ export async function GET(request: Request) {
   const verdict = getVerdict(score);
 
   const accent = COLOR_MAP[verdict.text] ?? "#60a5fa";
-  const bg = BG_MAP[verdict.bg] ?? "#172554";
+  const [bgDark, bgLight] = BG_MAP[verdict.bg] ?? ["#0f172a", "#1e3a5f"];
 
-  const bullets = [
-    weather && { icon: "Weather", value: weather },
-    mta && { icon: "MTA", value: mta },
-    events && { icon: "Events", value: events },
+  const pills = [
+    weather && { icon: "☁", value: weather },
+    mta     && { icon: "🚇", value: mta },
+    events  && { icon: "📅", value: events },
   ].filter(Boolean) as { icon: string; value: string }[];
 
   return new ImageResponse(
     (
       <div
         style={{
-          width: "1200px", height: "630px",
-          background: bg,
-          display: "flex", flexDirection: "column",
-          alignItems: "center", justifyContent: "center",
-          fontFamily: "sans-serif", padding: "60px",
-          gap: "0px",
+          width: "1200px",
+          height: "630px",
+          background: `linear-gradient(135deg, ${bgDark} 0%, ${bgLight} 100%)`,
+          display: "flex",
+          flexDirection: "column",
+          alignItems: "center",
+          justifyContent: "center",
+          fontFamily: "sans-serif",
+          padding: "56px 80px",
+          position: "relative",
         }}
       >
-        <div style={{ fontSize: "26px", color: "#6b7280", letterSpacing: "0.15em", textTransform: "uppercase", marginBottom: "20px" }}>
-          howbusyis.nyc
+        {/* Subtle glow behind score */}
+        <div
+          style={{
+            position: "absolute",
+            width: "400px",
+            height: "400px",
+            borderRadius: "50%",
+            background: accent,
+            opacity: 0.07,
+            filter: "blur(80px)",
+            top: "50%",
+            left: "50%",
+            transform: "translate(-50%, -50%)",
+          }}
+        />
+
+        {/* Domain */}
+        <div
+          style={{
+            fontSize: "22px",
+            color: "#6b7280",
+            letterSpacing: "0.18em",
+            textTransform: "uppercase",
+            marginBottom: "28px",
+          }}
+        >
+          howbusy.is/nyc
         </div>
 
-        <div style={{ fontSize: "100px", fontWeight: 900, color: accent, lineHeight: 1, marginBottom: "12px" }}>
-          {verdict.label}
-        </div>
-
-        <div style={{ fontSize: "32px", color: "#d1d5db", marginBottom: "36px" }}>
-          {verdict.subtitle}
-        </div>
-
-        <div style={{ display: "flex", alignItems: "flex-end", gap: "12px", marginBottom: "28px" }}>
-          <div style={{ fontSize: "80px", fontWeight: 900, color: "white", lineHeight: 1 }}>{score}</div>
-          <div style={{ fontSize: "28px", color: "#4b5563", paddingBottom: "12px" }}>/100</div>
+        {/* Score — the hero */}
+        <div
+          style={{
+            display: "flex",
+            alignItems: "flex-end",
+            gap: "10px",
+            marginBottom: "10px",
+          }}
+        >
+          <span
+            style={{
+              fontSize: "200px",
+              fontWeight: 900,
+              color: "white",
+              lineHeight: 1,
+            }}
+          >
+            {score}
+          </span>
+          <span
+            style={{
+              fontSize: "40px",
+              color: "#4b5563",
+              paddingBottom: "24px",
+            }}
+          >
+            / 100
+          </span>
         </div>
 
         {/* Score bar */}
-        <div style={{ width: "500px", height: "10px", background: "#1f2937", borderRadius: "9999px", overflow: "hidden", marginBottom: "32px" }}>
-          <div style={{ width: `${score}%`, height: "100%", background: accent, borderRadius: "9999px" }} />
+        <div
+          style={{
+            width: "520px",
+            height: "8px",
+            background: "rgba(255,255,255,0.1)",
+            borderRadius: "9999px",
+            overflow: "hidden",
+            marginBottom: "28px",
+          }}
+        >
+          <div
+            style={{
+              width: `${score}%`,
+              height: "100%",
+              background: accent,
+              borderRadius: "9999px",
+            }}
+          />
         </div>
 
-        {/* Signal bullets */}
-        {bullets.length > 0 && (
-          <div style={{ display: "flex", gap: "24px", flexWrap: "wrap", justifyContent: "center" }}>
-            {bullets.map((b) => (
-              <div key={b.icon} style={{ display: "flex", alignItems: "center", gap: "8px", background: "rgba(255,255,255,0.07)", borderRadius: "999px", padding: "8px 18px" }}>
-                <span style={{ fontSize: "20px", color: "#9ca3af" }}>{b.icon}:</span>
-                <span style={{ fontSize: "20px", color: "#e5e7eb" }}>{b.value}</span>
+        {/* Verdict label */}
+        <div
+          style={{
+            fontSize: "72px",
+            fontWeight: 900,
+            color: accent,
+            lineHeight: 1,
+            marginBottom: "10px",
+            textAlign: "center",
+          }}
+        >
+          {verdict.label}
+        </div>
+
+        {/* Subtitle */}
+        <div
+          style={{
+            fontSize: "28px",
+            color: "#9ca3af",
+            marginBottom: "36px",
+            textAlign: "center",
+          }}
+        >
+          {verdict.subtitle}
+        </div>
+
+        {/* Signal pills */}
+        {pills.length > 0 && (
+          <div
+            style={{
+              display: "flex",
+              gap: "16px",
+              flexWrap: "wrap",
+              justifyContent: "center",
+            }}
+          >
+            {pills.map((b) => (
+              <div
+                key={b.icon}
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: "8px",
+                  background: "rgba(255,255,255,0.08)",
+                  border: `1px solid rgba(255,255,255,0.1)`,
+                  borderRadius: "999px",
+                  padding: "8px 20px",
+                }}
+              >
+                <span style={{ fontSize: "22px" }}>{b.icon}</span>
+                <span style={{ fontSize: "22px", color: "#d1d5db" }}>
+                  {b.value}
+                </span>
               </div>
             ))}
           </div>

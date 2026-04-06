@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect, useCallback } from "react";
 import { MtaSignalResult, LineStatusEntry } from "@/app/lib/types";
 import { NEIGHBORHOOD_LINES, findRoute, LINE_COLORS } from "@/app/lib/nyc-data";
 
@@ -62,28 +62,101 @@ function LinePill({ line, status }: { line: string; status?: LineStatusEntry }) 
   );
 }
 
-interface PlaceInput {
+interface Suggestion {
+  displayName: string;
+  lat: number;
+  lon: number;
+}
+
+function shortName(displayName: string): string {
+  // Take first 2 parts (e.g. "Central Park, Manhattan, New York..." → "Central Park, Manhattan")
+  return displayName.split(",").slice(0, 2).join(",").trim();
+}
+
+interface PlaceInputProps {
   label: string;
   value: string;
   onChange: (v: string) => void;
   placeholder: string;
 }
 
-function PlaceInput({ label, value, onChange, placeholder }: PlaceInput) {
-  const ref = useRef<HTMLInputElement>(null);
+function PlaceInput({ label, value, onChange, placeholder }: PlaceInputProps) {
+  const [suggestions, setSuggestions] = useState<Suggestion[]>([]);
+  const [open, setOpen] = useState(false);
+  const [activeIdx, setActiveIdx] = useState(-1);
+  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
+
+  const fetchSuggestions = useCallback(async (q: string) => {
+    if (q.trim().length < 2) { setSuggestions([]); setOpen(false); return; }
+    try {
+      const res = await fetch(`/api/geocode?suggest=1&q=${encodeURIComponent(q)}`);
+      if (!res.ok) { setSuggestions([]); return; }
+      const data: Suggestion[] = await res.json();
+      setSuggestions(Array.isArray(data) ? data : []);
+      setOpen(Array.isArray(data) && data.length > 0);
+      setActiveIdx(-1);
+    } catch {
+      setSuggestions([]);
+    }
+  }, []);
+
+  const handleChange = (v: string) => {
+    onChange(v);
+    if (debounceRef.current) clearTimeout(debounceRef.current);
+    debounceRef.current = setTimeout(() => fetchSuggestions(v), 300);
+  };
+
+  const select = (s: Suggestion) => {
+    onChange(shortName(s.displayName));
+    setSuggestions([]);
+    setOpen(false);
+  };
+
+  // Close on outside click
+  useEffect(() => {
+    const handler = (e: MouseEvent) => {
+      if (containerRef.current && !containerRef.current.contains(e.target as Node)) {
+        setOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, []);
+
   return (
-    <div className="flex-1 min-w-0">
+    <div className="flex-1 min-w-0 relative" ref={containerRef}>
       <label className="text-xs text-white/40 block mb-1">{label}</label>
       <input
-        ref={ref}
         className="w-full bg-white/5 border border-white/10 rounded-xl px-3 py-2.5 text-sm text-white placeholder-white/25 focus:outline-none focus:border-white/30 focus:bg-white/8"
         placeholder={placeholder}
         value={value}
-        onChange={(e) => onChange(e.target.value)}
+        onChange={(e) => handleChange(e.target.value)}
+        onFocus={() => suggestions.length > 0 && setOpen(true)}
         onKeyDown={(e) => {
-          if (e.key === "Enter") ref.current?.blur();
+          if (!open) return;
+          if (e.key === "ArrowDown") { e.preventDefault(); setActiveIdx(i => Math.min(i + 1, suggestions.length - 1)); }
+          else if (e.key === "ArrowUp") { e.preventDefault(); setActiveIdx(i => Math.max(i - 1, 0)); }
+          else if (e.key === "Enter" && activeIdx >= 0) { e.preventDefault(); select(suggestions[activeIdx]); }
+          else if (e.key === "Escape") { setOpen(false); }
         }}
+        autoComplete="off"
       />
+      {open && suggestions.length > 0 && (
+        <ul className="absolute z-50 top-full mt-1 w-full bg-zinc-900 border border-white/10 rounded-xl shadow-xl overflow-hidden">
+          {suggestions.map((s, i) => (
+            <li
+              key={i}
+              className={`px-3 py-2.5 text-sm cursor-pointer transition-colors ${
+                i === activeIdx ? "bg-white/10 text-white" : "text-white/70 hover:bg-white/8 hover:text-white"
+              }`}
+              onMouseDown={(e) => { e.preventDefault(); select(s); }}
+            >
+              <span className="font-medium">{shortName(s.displayName)}</span>
+            </li>
+          ))}
+        </ul>
+      )}
     </div>
   );
 }
