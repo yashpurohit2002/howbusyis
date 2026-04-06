@@ -97,6 +97,7 @@ export async function GET(request: Request) {
           justifyContent: "center",
           fontFamily: "sans-serif",
           padding: "56px 80px",
+          position: "relative",
         }}
       >
         <div style={{ display: "flex", fontSize: "22px", color: "#6b7280", letterSpacing: "0.18em", textTransform: "uppercase", marginBottom: "28px" }}>
@@ -129,6 +130,10 @@ export async function GET(request: Request) {
             ))}
           </div>
         )}
+        {/* Watermark */}
+        <div style={{ display: "flex", position: "absolute", bottom: "32px", right: "48px", fontSize: "16px", color: "rgba(255,255,255,0.2)", letterSpacing: "0.05em" }}>
+          yashpurohit.me
+        </div>
       </div>
     ),
     { width: 1200, height: 630 }

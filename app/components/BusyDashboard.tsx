@@ -238,7 +238,7 @@ export function BusyDashboard() {
         </div>
 
         {/* ── Footer ── */}
-        <footer className="text-center text-white/25 text-xs space-y-1 pb-4">
+        <footer className="text-center text-white/25 text-xs space-y-2 pb-4">
           <p>Updated at {formatTime(data.lastUpdated)} EST &middot; refreshes every 5 min</p>
           <p>
             Built by{" "}
@@ -250,16 +250,48 @@ export function BusyDashboard() {
             >
               Yash Purohit
             </a>
-            {" "}&middot;{" "}
+          </p>
+          <div className="flex items-center justify-center gap-4 pt-1">
             <a
               href="https://www.yashpurohit.me"
               target="_blank"
               rel="noopener noreferrer"
-              className="hover:text-white/50 underline underline-offset-2 transition-colors"
+              className="hover:text-white/50 transition-colors"
+              title="Website"
             >
               yashpurohit.me
             </a>
-          </p>
+            <span className="opacity-30">&middot;</span>
+            <a
+              href="https://twitter.com/yash__purohit"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="hover:text-white/50 transition-colors"
+              title="Twitter / X"
+            >
+              @yash__purohit
+            </a>
+            <span className="opacity-30">&middot;</span>
+            <a
+              href="https://instagram.com/yash_purohit_"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="hover:text-white/50 transition-colors"
+              title="Instagram"
+            >
+              @yash_purohit_
+            </a>
+            <span className="opacity-30">&middot;</span>
+            <a
+              href="https://linkedin.com/in/yashpurohit"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="hover:text-white/50 transition-colors"
+              title="LinkedIn"
+            >
+              LinkedIn
+            </a>
+          </div>
         </footer>
       </div>
     </div>
