@@ -59,6 +59,12 @@ export function WeatherCard({ weather, textClass }: Props) {
   const maxTemp = temps.length > 0 ? Math.max(...temps) : weather.temp;
   const minTemp = temps.length > 0 ? Math.min(...temps) : weather.temp;
 
+  // Umbrella check: look at next ~6h (2 hourly slots)
+  const nextHours = weather.hourly.slice(0, 3);
+  const maxRainPop = nextHours.length > 0 ? Math.max(...nextHours.map((h) => h.pop)) : 0;
+  const umbrellaHour = nextHours.find((h) => h.pop >= 0.3);
+  const showUmbrella = maxRainPop >= 0.3;
+
   return (
     <div className="bg-white/5 border border-white/10 rounded-2xl p-5 space-y-4">
       {/* Top row */}
@@ -95,6 +101,16 @@ export function WeatherCard({ weather, textClass }: Props) {
           )}
         </div>
       </div>
+
+      {/* Umbrella alert */}
+      {showUmbrella && (
+        <div className="flex items-center gap-2 bg-blue-950/60 border border-blue-800/50 rounded-xl px-3 py-2">
+          <span className="text-lg">☂️</span>
+          <p className="text-sm text-blue-300 font-medium">
+            Rain likely{umbrellaHour ? ` around ${umbrellaHour.hour}` : " soon"} — bring an umbrella.
+          </p>
+        </div>
+      )}
 
       {/* Impact line */}
       <div className={`text-sm font-medium ${textClass} rounded-xl px-3 py-2 bg-white/5`}>

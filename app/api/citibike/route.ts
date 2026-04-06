@@ -55,17 +55,34 @@ export interface CitiBikeSearchResponse {
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
   const q = searchParams.get("q") ?? "";
+  const latParam = searchParams.get("lat");
+  const lonParam = searchParams.get("lon");
 
-  const matched = fuzzyMatch(q);
-  if (!matched) {
-    return NextResponse.json(
-      { error: `No neighborhood found for "${q}". Try "williamsburg" or "midtown".` },
-      { status: 404 }
-    );
+  let lat: number;
+  let lon: number;
+  let neighborhood: string;
+
+  if (latParam && lonParam) {
+    lat = parseFloat(latParam);
+    lon = parseFloat(lonParam);
+    if (isNaN(lat) || isNaN(lon)) {
+      return NextResponse.json({ error: "Invalid coordinates" }, { status: 400 });
+    }
+    neighborhood = "your location";
+  } else {
+    const matched = fuzzyMatch(q);
+    if (!matched) {
+      return NextResponse.json(
+        { error: `No neighborhood found for "${q}". Try "williamsburg" or "midtown".` },
+        { status: 404 }
+      );
+    }
+    const nhoodData = NEIGHBORHOOD_LINES[matched];
+    lat = nhoodData.lat;
+    lon = nhoodData.lon;
+    neighborhood = matched;
   }
 
-  const nhoodData = NEIGHBORHOOD_LINES[matched];
-  const { lat, lon } = nhoodData;
   const RADIUS = 600; // meters -- roughly a 7-8 min walk
 
   try {
@@ -129,7 +146,7 @@ export async function GET(request: Request) {
     const totalCap = totalBikes + totalDocks;
 
     const response: CitiBikeSearchResponse = {
-      neighborhood: matched,
+      neighborhood,
       lat,
       lon,
       radiusFt: Math.round(RADIUS * 3.28084),

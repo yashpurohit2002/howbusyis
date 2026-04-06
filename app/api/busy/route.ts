@@ -43,25 +43,35 @@ async function kvSet(key: string, value: unknown, ttl: number): Promise<void> {
 
 // ── Historical percentile ────────────────────────────────────────────────────
 
-async function recordAndGetPercentile(score: number): Promise<number | undefined> {
-  if (!isKvConfigured()) return undefined;
+async function recordAndGetHistory(score: number): Promise<{
+  percentile?: number;
+  scores?: number[];
+}> {
+  if (!isKvConfigured()) return {};
   try {
     const today = new Date().toISOString().split("T")[0];
     await kvSet(`score:${today}`, score, 60 * 60 * 24 * 35);
 
-    const keys = Array.from({ length: 30 }, (_, i) => {
+    const allKeys = Array.from({ length: 30 }, (_, i) => {
       const d = new Date(Date.now() - (i + 1) * 24 * 60 * 60 * 1000);
       return `score:${d.toISOString().split("T")[0]}`;
     });
 
-    const values = await Promise.all(keys.map((k) => kvGet<number>(k)));
+    const values = await Promise.all(allKeys.map((k) => kvGet<number>(k)));
     const historical = values.filter((v): v is number => v !== null);
-    if (historical.length === 0) return undefined;
+    if (historical.length === 0) return {};
 
     const below = historical.filter((s) => s < score).length;
-    return Math.round((below / historical.length) * 100);
+    const percentile = Math.round((below / historical.length) * 100);
+
+    // Last 7 days (oldest first) — allKeys[0] = yesterday, allKeys[6] = 7 days ago
+    const last7 = allKeys.slice(0, 7).map((_, i) => values[i]).filter((v): v is number => v !== null);
+    // Reverse so oldest is first, append today
+    const scores = [...last7.reverse(), score];
+
+    return { percentile, scores };
   } catch {
-    return undefined;
+    return {};
   }
 }
 
@@ -110,7 +120,7 @@ export async function GET(request: Request) {
     timeOfDay.score,
   ]);
 
-  const historicalPercentile = await recordAndGetPercentile(score);
+  const history = await recordAndGetHistory(score);
   const verdict = getVerdict(score);
 
   const response: BusyResponse = {
@@ -119,7 +129,8 @@ export async function GET(request: Request) {
     subtitle: verdict.subtitle,
     color: verdict.color,
     signals: { mta, weather, events, noise, citibike, dsny, timeOfDay, nightlife },
-    historicalPercentile,
+    historicalPercentile: history.percentile,
+    historicalScores: history.scores,
     lastUpdated: new Date().toISOString(),
   };
 

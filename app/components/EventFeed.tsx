@@ -12,6 +12,20 @@ const CROWD_CONFIG = {
   Packed: { label: "Packed", color: "bg-red-900 text-red-400" },
 };
 
+// Major venues that cause significant neighborhood crowd impact
+const MAJOR_VENUES = [
+  "madison square garden", "msg", "barclays center", "yankee stadium",
+  "citi field", "metlife", "forest hills stadium", "queens theater",
+  "radio city", "carnegie hall", "terminal 5", "irving plaza",
+  "united palace", "apollo theater", "brooklyn bowl", "kings theatre",
+  "prudential center",
+];
+
+function isMajorVenue(venue: string): boolean {
+  const v = venue.toLowerCase();
+  return MAJOR_VENUES.some((m) => v.includes(m));
+}
+
 function LineBadge({ line }: { line: string }) {
   const color = LINE_COLORS[line] ?? "#808183";
   const isDark = ["N","Q","R","W"].includes(line);
@@ -38,13 +52,26 @@ export function EventFeed({ events, textClass }: Props) {
     );
   }
 
+  const bigEvents = events.filter((e) => e.crowdSize === "Packed" && isMajorVenue(e.venue));
+
   return (
     <div className="bg-white/5 border border-white/10 rounded-2xl overflow-hidden">
+      {bigEvents.length > 0 && (
+        <div className="px-4 py-2 bg-orange-950/60 border-b border-orange-800/40 flex items-center gap-2">
+          <span className="text-base">🏟️</span>
+          <p className="text-xs text-orange-300 font-medium">
+            {bigEvents.length === 1
+              ? `${bigEvents[0].venue} tonight — expect heavy crowds nearby`
+              : `${bigEvents.length} stadium-level events — several neighborhoods will be packed`}
+          </p>
+        </div>
+      )}
       <div className="max-h-72 overflow-y-auto divide-y divide-white/5">
         {events.map((ev) => {
           const crowd = CROWD_CONFIG[ev.crowdSize];
+          const major = isMajorVenue(ev.venue);
           return (
-            <div key={ev.id} className="px-4 py-3 hover:bg-white/5 transition-colors">
+            <div key={ev.id} className={`px-4 py-3 hover:bg-white/5 transition-colors ${major && ev.crowdSize === "Packed" ? "border-l-2 border-orange-700/60" : ""}`}>
               <div className="flex items-start justify-between gap-2">
                 <div className="min-w-0 flex-1">
                   {/* Event name -- link to TM if available */}

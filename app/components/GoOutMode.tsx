@@ -4,13 +4,14 @@ interface Props {
   verdict: GoOutVerdict;
 }
 
-const VERDICT_STYLE = {
-  YES:        { emoji: "🟢", bg: "bg-emerald-950", border: "border-emerald-800" },
-  "STAY HOME":{ emoji: "❄️",  bg: "bg-red-950",     border: "border-red-800" },
+const MOOD_STYLE = {
+  positive: { bg: "bg-emerald-950", border: "border-emerald-800" },
+  cautious:  { bg: "bg-yellow-950", border: "border-yellow-800" },
+  warning:   { bg: "bg-red-950",    border: "border-red-800" },
 };
 
 export function GoOutMode({ verdict }: Props) {
-  const style = VERDICT_STYLE[verdict.verdict];
+  const style = MOOD_STYLE[verdict.mood];
 
   return (
     <div className={`${style.bg} border ${style.border} rounded-2xl p-6 space-y-3 text-center`}>

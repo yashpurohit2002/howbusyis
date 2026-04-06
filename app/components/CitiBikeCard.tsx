@@ -81,6 +81,7 @@ export function CitiBikeCard({ citibike, textClass }: Props) {
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [showSuggestions, setShowSuggestions] = useState(false);
+  const [geoLoading, setGeoLoading] = useState(false);
 
   const suggestions = useMemo(
     () =>
@@ -89,6 +90,38 @@ export function CitiBikeCard({ citibike, textClass }: Props) {
         : [],
     [query]
   );
+
+  const searchByCoords = async (lat: number, lon: number) => {
+    setGeoLoading(false);
+    setLoading(true);
+    setError(null);
+    setResult(null);
+    setShowSuggestions(false);
+    try {
+      const res = await fetch(`/api/citibike?lat=${lat}&lon=${lon}`);
+      const data = await res.json();
+      if (!res.ok) setError(data.error ?? "Something went wrong");
+      else setResult(data);
+    } catch {
+      setError("Couldn't reach the Citi Bike feed");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const searchNearMe = () => {
+    if (!navigator.geolocation) {
+      setError("Geolocation not supported on this device");
+      return;
+    }
+    setGeoLoading(true);
+    setError(null);
+    navigator.geolocation.getCurrentPosition(
+      (pos) => searchByCoords(pos.coords.latitude, pos.coords.longitude),
+      () => { setGeoLoading(false); setError("Location access denied"); },
+      { timeout: 8000 }
+    );
+  };
 
   const search = async (neighborhood: string) => {
     if (!neighborhood.trim()) return;
@@ -134,8 +167,16 @@ export function CitiBikeCard({ citibike, textClass }: Props) {
             onKeyDown={(e) => e.key === "Enter" && search(query)}
           />
           <button
+            onClick={searchNearMe}
+            disabled={loading || geoLoading}
+            title="Find bikes near my location"
+            className="px-3 py-2 rounded-xl bg-white/10 hover:bg-white/15 border border-white/10 text-sm text-white/70 hover:text-white transition-all cursor-pointer disabled:opacity-40"
+          >
+            {geoLoading ? "..." : "📍"}
+          </button>
+          <button
             onClick={() => search(query)}
-            disabled={loading}
+            disabled={loading || geoLoading}
             className="px-3 py-2 rounded-xl bg-white/10 hover:bg-white/15 border border-white/10 text-sm text-white/70 hover:text-white transition-all cursor-pointer disabled:opacity-40"
           >
             {loading ? "..." : "Go"}

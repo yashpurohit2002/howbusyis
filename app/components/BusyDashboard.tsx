@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useRef } from "react";
 import { BusyResponse, getVerdict } from "@/app/lib/types";
 import { computeGoOutVerdict } from "@/app/lib/verdict";
 import { ScoreBar } from "./ScoreBar";
@@ -40,13 +40,17 @@ export function BusyDashboard() {
   const [error, setError] = useState(false);
   const [goOutMode, setGoOutMode] = useState(false);
   const [highlightLines, setHighlightLines] = useState<string[]>([]);
+  const prevScoreRef = useRef<number | null>(null);
 
   const fetchData = useCallback(async () => {
     try {
       const res = await fetch("/api/busy?city=nyc");
       if (!res.ok) throw new Error("fetch failed");
       const json: BusyResponse = await res.json();
-      setData(json);
+      setData((prev) => {
+        prevScoreRef.current = prev?.score ?? null;
+        return json;
+      });
       setError(false);
     } catch {
       setError(true);
@@ -89,6 +93,10 @@ export function BusyDashboard() {
   const verdict = getVerdict(data.score);
   const goOutVerdict = computeGoOutVerdict(data);
 
+  const scoreDelta = prevScoreRef.current !== null ? data.score - prevScoreRef.current : 0;
+  const trendIcon = scoreDelta >= 5 ? "↑" : scoreDelta <= -5 ? "↓" : null;
+  const trendColor = scoreDelta >= 5 ? "text-red-400" : "text-emerald-400";
+
   return (
     <div
       className={`min-h-screen bg-gradient-to-b ${verdict.bg} transition-colors duration-700`}
@@ -123,12 +131,19 @@ export function BusyDashboard() {
           </div>
           <div className="flex items-end justify-center gap-2">
             <span className="text-7xl font-black text-white tabular-nums leading-none">{data.score}</span>
-            <span className="text-white/30 text-2xl mb-2">/100</span>
+            <div className="flex flex-col items-start mb-2 gap-0.5">
+              <span className="text-white/30 text-2xl">/100</span>
+              {trendIcon && (
+                <span className={`text-sm font-bold ${trendColor}`} title={`${scoreDelta > 0 ? "+" : ""}${scoreDelta} from last check`}>
+                  {trendIcon} {Math.abs(scoreDelta)}
+                </span>
+              )}
+            </div>
           </div>
           <div className="flex justify-center">
             <ScoreBar score={data.score} barClass={verdict.bar} />
           </div>
-          <HistoricalContext percentile={data.historicalPercentile} score={data.score} />
+          <HistoricalContext percentile={data.historicalPercentile} score={data.score} historicalScores={data.historicalScores} />
         </div>
 
         {/* ── MTA ── */}

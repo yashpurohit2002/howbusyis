@@ -115,6 +115,7 @@ export interface BusyResponse {
     nightlife: NightlifeSignalResult;
   };
   historicalPercentile?: number;
+  historicalScores?: number[];  // last 7 days, oldest first
   lastUpdated: string;
 }
 
