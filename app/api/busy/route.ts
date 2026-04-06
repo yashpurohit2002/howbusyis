@@ -107,8 +107,16 @@ export async function GET(request: Request) {
     getDsnyScore(city),
   ]);
 
-  // Nightlife is now synchronous — uses events data already fetched above
-  const nightlife = getNightlifeScore(city, events.events);
+  // Nightlife is synchronous — uses already-fetched data for MTA, weather, events
+  const nextHourPop = weather.hourly[0]?.pop ?? 0;
+  const nightlife = getNightlifeScore(
+    city,
+    events.events,
+    mta.delayedLines,
+    weather.description,
+    weather.temp,
+    nextHourPop,
+  );
 
   const timeOfDay = getTimeOfDayScore(city.timezoneTZ);
 

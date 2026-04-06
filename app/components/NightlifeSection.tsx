@@ -65,6 +65,17 @@ function SpotCard({ spot, isTop }: { spot: NightlifeSpot; isTop: boolean }) {
       {/* Vibe */}
       <p className="text-xs text-white/60 leading-relaxed">{spot.vibe}</p>
 
+      {/* Dynamic modifier chips */}
+      {spot.modifiers.length > 0 && (
+        <div className="flex flex-wrap gap-1.5">
+          {spot.modifiers.map((m) => (
+            <span key={m} className="text-[10px] px-1.5 py-0.5 rounded-full bg-white/8 border border-white/10 text-white/50">
+              {m}
+            </span>
+          ))}
+        </div>
+      )}
+
       {/* Best for tags */}
       <div className="flex flex-wrap gap-1">
         {spot.bestFor.map((tag) => (

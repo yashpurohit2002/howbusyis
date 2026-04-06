@@ -664,53 +664,94 @@ export function getTimeOfDayScore(tz: string): SignalResult {
 }
 
 // ---- Nightlife ----
-// Scoring weights: bar density 40% · time-of-day 35% · events nearby 20% · weekend 5%
-export function getNightlifeScore(city: CityConfig, events: EventItem[] = []): NightlifeSignalResult {
+// Scoring weights: bar density 40% · time-of-day 35% · events 20% · weekend 5%
+// Dynamic modifiers: MTA delays, weather, post-peak decay
+export function getNightlifeScore(
+  city: CityConfig,
+  events: EventItem[] = [],
+  mtaDelayedLines: string[] = [],
+  weatherDesc: string = "",
+  weatherTemp: number = 65,
+  rainPop: number = 0,
+): NightlifeSignalResult {
   const nycNow = new Date(new Date().toLocaleString("en-US", { timeZone: city.timezoneTZ }));
   const currentHour = nycNow.getHours();
-  const dayOfWeek = nycNow.getDay(); // 0=Sun, 5=Fri, 6=Sat
+  const dayOfWeek = nycNow.getDay();
   const isWeekend = dayOfWeek === 5 || dayOfWeek === 6 || dayOfWeek === 0;
   const isNightTime = currentHour >= 20 || currentHour < 4;
 
-  // Only use Ticketmaster events (concerts, shows, sports) — not street permits
+  const isRaining = rainPop > 0.5 || /rain|drizzle|shower/i.test(weatherDesc);
+  const isCold = weatherTemp < 32;
+  const isNicePlus = !isRaining && weatherTemp >= 55 && weatherTemp <= 82;
+
+  // Only concerts/shows from Ticketmaster — not street permits
   const entertainmentEvents = events.filter((e) => e.source === "ticketmaster");
 
   const spots = NIGHTLIFE_NEIGHBORHOODS.map((n) => {
-    // ── Bar density score (0-40 pts) ──────────────────────────────────────────
-    // Reflects the actual number of bars/clubs in the area — the foundation of nightlife
+    const modifiers: string[] = [];
+
+    // ── Bar density (0-40 pts) ────────────────────────────────────────────────
     const barScore = Math.round((n.barDensity / 100) * 40);
 
-    // ── Time-of-day score (0-35 pts) ─────────────────────────────────────────
-    // How close are we to this neighborhood's actual peak hour?
+    // ── Time-of-day (0-35 pts) ────────────────────────────────────────────────
     const hoursToPeak = (n.peakHour - currentHour + 24) % 24;
+    const hoursAfterPeak = (currentHour - n.peakHour + 24) % 24;
     const timeFactor =
       hoursToPeak === 0 ? 1.0 :
-      hoursToPeak <= 1 ? 0.9 :
-      hoursToPeak <= 2 ? 0.75 :
-      hoursToPeak <= 3 ? 0.55 :
-      hoursToPeak >= 22 ? 0.65 : // just past peak — still buzzing
-      hoursToPeak >= 21 ? 0.45 :
-      isNightTime ? 0.25 : 0.05; // daytime
+      hoursToPeak <= 1 ? 0.92 :
+      hoursToPeak <= 2 ? 0.78 :
+      hoursToPeak <= 3 ? 0.58 :
+      hoursAfterPeak <= 1 ? 0.70 : // just past peak — still going
+      hoursAfterPeak <= 2 ? 0.50 : // winding down
+      hoursAfterPeak <= 3 ? 0.30 : // mostly done
+      isNightTime ? 0.20 : 0.04;   // daytime or well past peak
     const timeScore = Math.round(timeFactor * 35);
 
-    // ── Events score (0-20 pts) ───────────────────────────────────────────────
-    // Boost if there are concerts/shows near this neighborhood tonight
+    // ── Events nearby (0-20 pts) ──────────────────────────────────────────────
+    // Match by neighborhood name OR by shared subway lines — much more accurate
     const nearbyEvents = entertainmentEvents.filter((e) => {
-      const nHood = e.neighborhood?.toLowerCase() ?? "";
+      const nHood = (e.neighborhood ?? "").toLowerCase();
       const spotName = n.name.toLowerCase();
-      // Match by neighborhood name or by borough + nearby borough overlap
-      return nHood.includes(spotName) || spotName.includes(nHood.split(" ")[0] ?? "x");
+      const nameMatch = nHood.includes(spotName) || spotName.split(" ").some((w) => w.length > 3 && nHood.includes(w));
+      const lineMatch = e.lines.some((l) => n.lines.includes(l));
+      return nameMatch || lineMatch;
     });
-    const eventsRaw = nearbyEvents.reduce((sum, e) => {
-      return sum + (e.crowdSize === "Packed" ? 20 : e.crowdSize === "Medium" ? 10 : 4);
-    }, 0);
+    const eventsRaw = nearbyEvents.reduce((sum, e) =>
+      sum + (e.crowdSize === "Packed" ? 20 : e.crowdSize === "Medium" ? 10 : 4), 0);
     const eventsScore = Math.min(20, eventsRaw);
+    if (nearbyEvents.length > 0) {
+      const packed = nearbyEvents.filter((e) => e.crowdSize === "Packed").length;
+      modifiers.push(`🎵 ${nearbyEvents.length} show${nearbyEvents.length > 1 ? "s" : ""} nearby${packed > 0 ? " (sold out)" : ""}`);
+    }
 
     // ── Weekend bonus (0-5 pts) ───────────────────────────────────────────────
     const weekendBonus = isWeekend ? 5 : 0;
 
-    const activityScore = Math.min(100, barScore + timeScore + eventsScore + weekendBonus);
-    const hot = isActive(n.peakHour, currentHour) || activityScore >= 55;
+    // ── MTA modifier ─────────────────────────────────────────────────────────
+    // Penalize spots whose primary lines are delayed — harder to get there
+    const spotDelayedLines = n.lines.filter((l) => mtaDelayedLines.includes(l));
+    const primaryDelayed = spotDelayedLines.length > 0 && n.lines.slice(0, 2).some((l) => mtaDelayedLines.includes(l));
+    const mtaPenalty = primaryDelayed ? -12 : spotDelayedLines.length > 0 ? -5 : 0;
+    if (primaryDelayed) modifiers.push(`🚇 ${spotDelayedLines.slice(0, 2).join("/")} delayed`);
+
+    // ── Weather modifier ──────────────────────────────────────────────────────
+    // Rain hurts outdoor-leaning spots; nice weather gives them a boost
+    let weatherPenalty = 0;
+    if (n.outdoor && isRaining) {
+      weatherPenalty = -10;
+      modifiers.push("☔ Rain hurts outdoor spots");
+    } else if (n.outdoor && isNicePlus) {
+      weatherPenalty = +5;
+      modifiers.push("🌤 Great night for it");
+    }
+    if (isCold && n.outdoor) {
+      weatherPenalty -= 5;
+    }
+
+    const activityScore = Math.min(100, Math.max(0,
+      barScore + timeScore + eventsScore + weekendBonus + mtaPenalty + weatherPenalty
+    ));
+    const hot = isActive(n.peakHour, currentHour) && activityScore >= 45;
 
     return {
       name: n.name,
@@ -720,8 +761,10 @@ export function getNightlifeScore(city: CityConfig, events: EventItem[] = []): N
       lines: n.lines,
       peakLabel: peakLabel(n.peakHour),
       activityScore,
-      noiseCount: 0, // no longer used
+      noiseCount: 0,
       isHot: hot,
+      modifiers,
+      eventsNearby: nearbyEvents.length,
     };
   });
 
@@ -732,7 +775,7 @@ export function getNightlifeScore(city: CityConfig, events: EventItem[] = []): N
 
   return {
     label: "Nightlife",
-    detail: hotCount > 0 ? `${hotCount} neighborhood${hotCount === 1 ? "" : "s"} are active tonight` : "Quiet night across the city",
+    detail: hotCount > 0 ? `${hotCount} neighborhood${hotCount === 1 ? "" : "s"} heating up tonight` : "Quiet night across the city",
     score: Math.min(10, Math.round(spots.slice(0, 3).reduce((s, n) => s + n.activityScore, 0) / 30)),
     spots,
     topPick,

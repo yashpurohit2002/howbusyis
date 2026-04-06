@@ -89,8 +89,10 @@ export interface NightlifeSpot {
   lines: string[];
   peakLabel: string;
   activityScore: number;   // 0-100, combined signal
-  noiseCount: number;      // raw 311 noise complaints nearby (last 6h)
+  noiseCount: number;      // unused, kept for compat
   isHot: boolean;          // currently in peak window
+  modifiers: string[];     // dynamic chips: "🎵 2 shows tonight", "🚇 L delayed", "☔ rain hurts"
+  eventsNearby: number;
 }
 
 export interface NightlifeSignalResult extends SignalResult {
