@@ -215,7 +215,17 @@ export function CitiBikeCard({ citibike, textClass }: Props) {
       {error && <p className="text-xs text-red-400">{error}</p>}
 
       {/* Results */}
-      {result && <SearchResults result={result} />}
+      {result && (
+        <div className="space-y-3">
+          <SearchResults result={result} />
+          <button
+            onClick={() => { setResult(null); setQuery(""); setError(null); }}
+            className="text-xs text-white/30 hover:text-white/60 transition-colors cursor-pointer"
+          >
+            Clear
+          </button>
+        </div>
+      )}
 
       {/* Regional overview (shown when no search active) */}
       {!result && !loading && citibike.regions.length > 0 && (

@@ -42,15 +42,22 @@ export function BusyDashboard() {
   const [highlightLines, setHighlightLines] = useState<string[]>([]);
   const prevScoreRef = useRef<number | null>(null);
 
+  // Seed trend from localStorage so it shows on first load
+  useEffect(() => {
+    const saved = localStorage.getItem("hbi_lastScore");
+    if (saved) prevScoreRef.current = parseInt(saved, 10);
+  }, []);
+
   const fetchData = useCallback(async () => {
     try {
       const res = await fetch("/api/busy?city=nyc");
       if (!res.ok) throw new Error("fetch failed");
       const json: BusyResponse = await res.json();
       setData((prev) => {
-        prevScoreRef.current = prev?.score ?? null;
+        prevScoreRef.current = prev?.score ?? prevScoreRef.current;
         return json;
       });
+      localStorage.setItem("hbi_lastScore", String(json.score));
       setError(false);
     } catch {
       setError(true);
@@ -106,20 +113,7 @@ export function BusyDashboard() {
         {/* ── Header ── */}
         <div className="flex items-center justify-between">
           <p className="text-white/40 text-sm tracking-widest uppercase">New York City, right now</p>
-          <button
-            onClick={() => setGoOutMode((v) => !v)}
-            className={`text-xs px-3 py-1.5 rounded-full border transition-all cursor-pointer ${
-              goOutMode
-                ? "bg-white/15 border-white/20 text-white"
-                : "bg-transparent border-white/15 text-white/50 hover:text-white/70"
-            }`}
-          >
-            {goOutMode ? "Full view" : "Should I go out?"}
-          </button>
         </div>
-
-        {/* ── Go out mode ── */}
-        {goOutMode && <GoOutMode verdict={goOutVerdict} />}
 
         {/* ── Score ── */}
         <div className="text-center space-y-3">
@@ -144,6 +138,31 @@ export function BusyDashboard() {
             <ScoreBar score={data.score} barClass={verdict.bar} />
           </div>
           <HistoricalContext percentile={data.historicalPercentile} score={data.score} historicalScores={data.historicalScores} />
+        </div>
+
+        {/* ── Should I go out — always visible, tap to expand ── */}
+        <div className="space-y-0">
+          <button
+            onClick={() => setGoOutMode((v) => !v)}
+            className={`w-full flex items-center justify-between px-4 py-3.5 rounded-xl border transition-all cursor-pointer ${
+              goOutVerdict.mood === "positive"
+                ? "border-emerald-800/50 bg-emerald-950/40 hover:bg-emerald-950/60"
+                : goOutVerdict.mood === "cautious"
+                ? "border-yellow-800/50 bg-yellow-950/40 hover:bg-yellow-950/60"
+                : "border-red-800/50 bg-red-950/40 hover:bg-red-950/60"
+            }`}
+          >
+            <span className="text-sm text-white/50">Should I go out?</span>
+            <div className="flex items-center gap-2">
+              <span className={`text-sm font-bold ${goOutVerdict.color}`}>{goOutVerdict.verdict}</span>
+              <span className="text-white/25 text-xs">{goOutMode ? "▲" : "▼"}</span>
+            </div>
+          </button>
+          {goOutMode && (
+            <div className="pt-2">
+              <GoOutMode verdict={goOutVerdict} />
+            </div>
+          )}
         </div>
 
         {/* ── MTA ── */}
@@ -179,7 +198,7 @@ export function BusyDashboard() {
               {data.signals.events.detail}
             </span>
           </div>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <div className="space-y-3">
             <EventFeed events={data.signals.events.events} textClass={verdict.text} />
             <BoroughMap byBorough={data.signals.events.byBorough} textClass={verdict.text} />
           </div>
