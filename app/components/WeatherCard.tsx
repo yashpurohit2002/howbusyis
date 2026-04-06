@@ -1,3 +1,6 @@
+"use client";
+
+import { useState } from "react";
 import { WeatherSignalResult } from "@/app/lib/types";
 
 interface Props {
@@ -5,16 +8,22 @@ interface Props {
   textClass: string;
 }
 
-function SparklineBar({ pop, temp, hour, icon, maxTemp, minTemp }: {
-  pop: number; temp: number; hour: string; icon: string; maxTemp: number; minTemp: number;
+const toC = (f: number) => Math.round((f - 32) * 5 / 9);
+
+function SparklineBar({ pop, temp, hour, icon, maxTemp, minTemp, celsius }: {
+  pop: number; temp: number; hour: string; icon: string;
+  maxTemp: number; minTemp: number; celsius: boolean;
 }) {
-  const tempRange = maxTemp - minTemp || 1;
-  const heightPct = Math.round(((temp - minTemp) / tempRange) * 60 + 20); // 20-80%
+  const display = celsius ? toC(temp) : temp;
+  const displayMax = celsius ? toC(maxTemp) : maxTemp;
+  const displayMin = celsius ? toC(minTemp) : minTemp;
+  const tempRange = displayMax - displayMin || 1;
+  const heightPct = Math.round(((display - displayMin) / tempRange) * 60 + 20);
   const rainAlpha = Math.round(pop * 100);
 
   return (
     <div className="flex flex-col items-center gap-1 flex-1">
-      <span className="text-xs text-white/60">{temp}F</span>
+      <span className="text-xs text-white/60">{display}&deg;</span>
       <div className="w-full flex-1 flex items-end justify-center" style={{ height: "48px" }}>
         <div
           className="w-full max-w-5 rounded-t"
@@ -25,15 +34,15 @@ function SparklineBar({ pop, temp, hour, icon, maxTemp, minTemp }: {
         />
       </div>
       <span className="text-base">{icon}</span>
-      {pop > 0.1 && (
-        <span className="text-xs text-blue-400">{rainAlpha}%</span>
-      )}
+      {pop > 0.1 && <span className="text-xs text-blue-400">{rainAlpha}%</span>}
       <span className="text-xs text-white/30">{hour}</span>
     </div>
   );
 }
 
 export function WeatherCard({ weather, textClass }: Props) {
+  const [celsius, setCelsius] = useState(false);
+
   if (weather.error && !weather.temp) {
     return (
       <div className="bg-white/5 border border-white/10 rounded-2xl p-4">
@@ -41,6 +50,10 @@ export function WeatherCard({ weather, textClass }: Props) {
       </div>
     );
   }
+
+  const temp = celsius ? toC(weather.temp) : weather.temp;
+  const feelsLike = celsius ? toC(weather.feelsLike) : weather.feelsLike;
+  const unit = celsius ? "C" : "F";
 
   const temps = weather.hourly.map((h) => h.temp);
   const maxTemp = temps.length > 0 ? Math.max(...temps) : weather.temp;
@@ -52,10 +65,24 @@ export function WeatherCard({ weather, textClass }: Props) {
       <div className="flex items-start justify-between">
         <div>
           <div className="flex items-end gap-2">
-            <span className="text-5xl font-black text-white">{weather.temp}</span>
-            <span className="text-white/40 text-xl mb-1.5">F</span>
+            <span className="text-5xl font-black text-white">{temp}</span>
+            <div className="flex items-center gap-1 mb-1.5">
+              <button
+                onClick={() => setCelsius(false)}
+                className={`text-lg font-bold transition-colors cursor-pointer ${!celsius ? "text-white" : "text-white/25 hover:text-white/50"}`}
+              >
+                F
+              </button>
+              <span className="text-white/20">/</span>
+              <button
+                onClick={() => setCelsius(true)}
+                className={`text-lg font-bold transition-colors cursor-pointer ${celsius ? "text-white" : "text-white/25 hover:text-white/50"}`}
+              >
+                C
+              </button>
+            </div>
           </div>
-          <p className="text-white/50 text-sm">Feels like {weather.feelsLike}F</p>
+          <p className="text-white/50 text-sm">Feels like {feelsLike}&deg;{unit}</p>
         </div>
         <div className="text-right space-y-1">
           {weather.windSpeed > 0 && (
@@ -64,15 +91,13 @@ export function WeatherCard({ weather, textClass }: Props) {
             </p>
           )}
           {weather.humidity > 0 && (
-            <p className="text-sm text-white/50">
-              {weather.humidity}% humidity
-            </p>
+            <p className="text-sm text-white/50">{weather.humidity}% humidity</p>
           )}
         </div>
       </div>
 
       {/* Impact line */}
-      <div className={`text-sm font-medium ${textClass} bg-current/10 rounded-xl px-3 py-2 bg-white/5`}>
+      <div className={`text-sm font-medium ${textClass} rounded-xl px-3 py-2 bg-white/5`}>
         {weather.impact}
       </div>
 
@@ -95,6 +120,7 @@ export function WeatherCard({ weather, textClass }: Props) {
                 icon={h.icon}
                 maxTemp={maxTemp}
                 minTemp={minTemp}
+                celsius={celsius}
               />
             ))}
           </div>
