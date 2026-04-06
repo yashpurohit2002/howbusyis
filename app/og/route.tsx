@@ -18,31 +18,58 @@ const BG_MAP: Record<string, [string, string]> = {
   "from-red-950 to-red-900":         ["#1a0202", "#450a0a"],
 };
 
+async function getDataFast(origin: string): Promise<BusyResponse | null> {
+  // Try KV directly first — avoids the full API fanout and is ~10x faster
+  const kvUrl = process.env.KV_REST_API_URL;
+  const kvToken = process.env.KV_REST_API_TOKEN;
+  if (kvUrl && kvToken) {
+    try {
+      const res = await fetch(`${kvUrl}/get/busy:nyc`, {
+        headers: { Authorization: `Bearer ${kvToken}` },
+        signal: AbortSignal.timeout(1500),
+      });
+      if (res.ok) {
+        const json = await res.json();
+        const value = json.result;
+        if (value) {
+          const parsed: BusyResponse = typeof value === "string" ? JSON.parse(value) : value;
+          return parsed;
+        }
+      }
+    } catch {
+      // fall through to HTTP fetch
+    }
+  }
+
+  // Fallback: HTTP fetch with short timeout
+  try {
+    const res = await fetch(`${origin}/api/busy?city=nyc`, {
+      signal: AbortSignal.timeout(3000),
+    });
+    if (res.ok) return res.json();
+  } catch {
+    // fall through to defaults
+  }
+
+  return null;
+}
+
 export async function GET(request: Request) {
-  // Fetch live data so this route has a stable URL (no query params)
-  // which lets Vercel CDN actually cache it
   const origin = new URL(request.url).origin;
   let score = 50;
   let weather = "";
   let mta = "";
   let events = "";
 
-  try {
-    const res = await fetch(`${origin}/api/busy?city=nyc`, {
-      signal: AbortSignal.timeout(4000),
-    });
-    if (res.ok) {
-      const data: BusyResponse = await res.json();
-      score = data.score;
-      weather = data.signals.weather.description ?? "";
-      const delays = data.signals.mta.delayedLines?.length ?? 0;
-      mta = delays > 0 ? `${delays} delay${delays > 1 ? "s" : ""}` : "Subway clear";
-      events = data.signals.events.totalToday
-        ? `${data.signals.events.totalToday} events`
-        : "";
-    }
-  } catch {
-    // fall through with defaults
+  const data = await getDataFast(origin);
+  if (data) {
+    score = data.score;
+    weather = data.signals.weather.description ?? "";
+    const delays = data.signals.mta.delayedLines?.length ?? 0;
+    mta = delays > 0 ? `${delays} delay${delays > 1 ? "s" : ""}` : "Subway clear";
+    events = data.signals.events.totalToday
+      ? `${data.signals.events.totalToday} events`
+      : "";
   }
 
   const verdict = getVerdict(score);
