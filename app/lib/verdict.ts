@@ -20,37 +20,28 @@ export function computeGoOutVerdict(data: BusyResponse): GoOutVerdict {
   const isDeepNight = hourNY >= 1 && hourNY < 6;
   const isRushHour = (hourNY >= 8 && hourNY <= 10) || (hourNY >= 17 && hourNY <= 19);
 
+  const weatherTemp = signals.weather.temp; // Fahrenheit
+  const weatherDesc = signals.weather.description.toLowerCase();
+
   // ── STAY HOME ──────────────────────────────────────────────────────────────
-  // Only for genuinely bad conditions -- not just "some lines delayed"
-  if (weatherScore >= 7) {
-    return {
-      verdict: "STAY HOME",
-      reason: "The weather is actually bad today. Not Manhattan-light-drizzle bad. Actually bad.",
-      color: "text-red-400",
-    };
-  }
-  // MTA "bad" + rush hour is the one MTA case that warrants caution
-  if (mtaChaos === "bad" && isRushHour) {
-    return {
-      verdict: "STAY HOME",
-      reason: "Multiple lines are down during rush hour. This is one of those days. Work from home if you can.",
-      color: "text-red-400",
-    };
-  }
-  if (score >= 85) {
-    return {
-      verdict: "STAY HOME",
-      reason: "Everything is firing at once. Pure chaos out there. Go tomorrow.",
-      color: "text-red-400",
-    };
+  // Truly extreme conditions only: hurricane-force storms, blizzards, dangerous cold
+  const isBlizzard = weatherDesc.includes("blizzard") || weatherDesc.includes("heavy snow");
+  const isHurricane = weatherScore >= 9 && (weatherDesc.includes("thunder") || weatherDesc.includes("storm"));
+  const isDangerousCold = weatherTemp < -22; // -30°C
+
+  if (isBlizzard || isHurricane || isDangerousCold) {
+    const reason =
+      isBlizzard ? "Blizzard conditions. Seriously, stay inside." :
+      isHurricane ? "Severe storm. This is not a normal rainy day." :
+      "Dangerously cold. Frostbite risk is real. Stay in.";
+    return { verdict: "STAY HOME", reason, color: "text-red-400" };
   }
 
   // ── MAYBE ──────────────────────────────────────────────────────────────────
-  // MTA "bad" outside rush hour -- still worth flagging but not a dealbreaker
-  if (mtaChaos === "bad") {
+  if (weatherScore >= 7) {
     return {
       verdict: "MAYBE",
-      reason: "Several lines are having a rough day. Check your specific route. It might be fine.",
+      reason: "Rough weather out there. Go if you have to, but don't make unnecessary trips.",
       color: "text-orange-400",
     };
   }
