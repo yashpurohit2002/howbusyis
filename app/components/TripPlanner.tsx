@@ -39,7 +39,8 @@ function walkMin(meters: number): number {
 }
 
 function mapsUrl(from: string, to: string): string {
-  return `https://www.google.com/maps/dir/${encodeURIComponent(from)}/${encodeURIComponent(to)}/?travelmode=transit`;
+  const params = new URLSearchParams({ api: "1", origin: from, destination: to, travelmode: "transit" });
+  return `https://www.google.com/maps/dir/?${params}`;
 }
 
 function LinePill({ line, status }: { line: string; status?: LineStatusEntry }) {
