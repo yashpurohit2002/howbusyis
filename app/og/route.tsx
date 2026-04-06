@@ -1,5 +1,5 @@
 import { ImageResponse } from "next/og";
-import { getVerdict } from "@/app/lib/types";
+import { getVerdict, BusyResponse } from "@/app/lib/types";
 
 export const runtime = "edge";
 
@@ -19,13 +19,33 @@ const BG_MAP: Record<string, [string, string]> = {
 };
 
 export async function GET(request: Request) {
-  const { searchParams } = new URL(request.url);
-  const score = parseInt(searchParams.get("score") ?? "50", 10);
-  const weather = searchParams.get("weather") ?? "";
-  const mta = searchParams.get("mta") ?? "";
-  const events = searchParams.get("events") ?? "";
-  const verdict = getVerdict(score);
+  // Fetch live data so this route has a stable URL (no query params)
+  // which lets Vercel CDN actually cache it
+  const origin = new URL(request.url).origin;
+  let score = 50;
+  let weather = "";
+  let mta = "";
+  let events = "";
 
+  try {
+    const res = await fetch(`${origin}/api/busy?city=nyc`, {
+      signal: AbortSignal.timeout(4000),
+    });
+    if (res.ok) {
+      const data: BusyResponse = await res.json();
+      score = data.score;
+      weather = data.signals.weather.description ?? "";
+      const delays = data.signals.mta.delayedLines?.length ?? 0;
+      mta = delays > 0 ? `${delays} delay${delays > 1 ? "s" : ""}` : "Subway clear";
+      events = data.signals.events.totalToday
+        ? `${data.signals.events.totalToday} events`
+        : "";
+    }
+  } catch {
+    // fall through with defaults
+  }
+
+  const verdict = getVerdict(score);
   const accent = COLOR_MAP[verdict.text] ?? "#60a5fa";
   const [bgDark, bgLight] = BG_MAP[verdict.bg] ?? ["#0f172a", "#1e3a5f"];
 
@@ -48,142 +68,45 @@ export async function GET(request: Request) {
           justifyContent: "center",
           fontFamily: "sans-serif",
           padding: "56px 80px",
-          position: "relative",
         }}
       >
-        {/* Subtle glow behind score */}
-        <div
-          style={{
-            position: "absolute",
-            width: "400px",
-            height: "400px",
-            borderRadius: "50%",
-            background: accent,
-            opacity: 0.07,
-            filter: "blur(80px)",
-            top: "50%",
-            left: "50%",
-            transform: "translate(-50%, -50%)",
-          }}
-        />
-
         {/* Domain */}
-        <div
-          style={{
-            fontSize: "22px",
-            color: "#6b7280",
-            letterSpacing: "0.18em",
-            textTransform: "uppercase",
-            marginBottom: "28px",
-          }}
-        >
+        <div style={{ fontSize: "22px", color: "#6b7280", letterSpacing: "0.18em", textTransform: "uppercase", marginBottom: "28px" }}>
           howbusy.is/nyc
         </div>
 
-        {/* Score — the hero */}
-        <div
-          style={{
-            display: "flex",
-            alignItems: "flex-end",
-            gap: "10px",
-            marginBottom: "10px",
-          }}
-        >
-          <span
-            style={{
-              fontSize: "200px",
-              fontWeight: 900,
-              color: "white",
-              lineHeight: 1,
-            }}
-          >
+        {/* Score */}
+        <div style={{ display: "flex", alignItems: "flex-end", gap: "10px", marginBottom: "10px" }}>
+          <span style={{ fontSize: "200px", fontWeight: 900, color: "white", lineHeight: 1 }}>
             {score}
           </span>
-          <span
-            style={{
-              fontSize: "40px",
-              color: "#4b5563",
-              paddingBottom: "24px",
-            }}
-          >
+          <span style={{ fontSize: "40px", color: "#4b5563", paddingBottom: "24px" }}>
             / 100
           </span>
         </div>
 
         {/* Score bar */}
-        <div
-          style={{
-            width: "520px",
-            height: "8px",
-            background: "rgba(255,255,255,0.1)",
-            borderRadius: "9999px",
-            overflow: "hidden",
-            marginBottom: "28px",
-          }}
-        >
-          <div
-            style={{
-              width: `${score}%`,
-              height: "100%",
-              background: accent,
-              borderRadius: "9999px",
-            }}
-          />
+        <div style={{ width: "520px", height: "8px", background: "rgba(255,255,255,0.1)", borderRadius: "9999px", overflow: "hidden", marginBottom: "28px" }}>
+          <div style={{ width: `${score}%`, height: "100%", background: accent, borderRadius: "9999px" }} />
         </div>
 
-        {/* Verdict label */}
-        <div
-          style={{
-            fontSize: "72px",
-            fontWeight: 900,
-            color: accent,
-            lineHeight: 1,
-            marginBottom: "10px",
-            textAlign: "center",
-          }}
-        >
+        {/* Verdict */}
+        <div style={{ fontSize: "72px", fontWeight: 900, color: accent, lineHeight: 1, marginBottom: "10px", textAlign: "center" }}>
           {verdict.label}
         </div>
 
         {/* Subtitle */}
-        <div
-          style={{
-            fontSize: "28px",
-            color: "#9ca3af",
-            marginBottom: "36px",
-            textAlign: "center",
-          }}
-        >
+        <div style={{ fontSize: "28px", color: "#9ca3af", marginBottom: "36px", textAlign: "center" }}>
           {verdict.subtitle}
         </div>
 
-        {/* Signal pills */}
+        {/* Pills */}
         {pills.length > 0 && (
-          <div
-            style={{
-              display: "flex",
-              gap: "16px",
-              flexWrap: "wrap",
-              justifyContent: "center",
-            }}
-          >
+          <div style={{ display: "flex", gap: "16px", flexWrap: "wrap", justifyContent: "center" }}>
             {pills.map((b) => (
-              <div
-                key={b.icon}
-                style={{
-                  display: "flex",
-                  alignItems: "center",
-                  gap: "8px",
-                  background: "rgba(255,255,255,0.08)",
-                  border: `1px solid rgba(255,255,255,0.1)`,
-                  borderRadius: "999px",
-                  padding: "8px 20px",
-                }}
-              >
+              <div key={b.icon} style={{ display: "flex", alignItems: "center", gap: "8px", background: "rgba(255,255,255,0.08)", border: "1px solid rgba(255,255,255,0.1)", borderRadius: "999px", padding: "8px 20px" }}>
                 <span style={{ fontSize: "22px" }}>{b.icon}</span>
-                <span style={{ fontSize: "22px", color: "#d1d5db" }}>
-                  {b.value}
-                </span>
+                <span style={{ fontSize: "22px", color: "#d1d5db" }}>{b.value}</span>
               </div>
             ))}
           </div>

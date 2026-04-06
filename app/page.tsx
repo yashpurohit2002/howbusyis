@@ -42,26 +42,12 @@ async function fetchBusyData(): Promise<BusyResponse | null> {
 export async function generateMetadata(): Promise<Metadata> {
   const data = await fetchBusyData();
   const score = data?.score ?? 50;
-  const weather = data?.signals.weather.description ?? data?.signals.weather.label ?? "";
-  const mtaDelays = data?.signals.mta.delayedLines?.length ?? 0;
-  const mta = mtaDelays > 0 ? `${mtaDelays} delay${mtaDelays > 1 ? "s" : ""}` : "Subway clear";
-  const events = data?.signals.events.totalToday
-    ? `${data.signals.events.totalToday} events`
-    : "";
-
-  const params = new URLSearchParams({
-    score: String(score),
-    ...(weather && { weather }),
-    ...(mta && { mta }),
-    ...(events && { events }),
-  });
-  const ogUrl = `/og?${params}`;
-
   const label = data?.label ?? "How busy?";
   const description = buildDescription(data, score);
 
   const baseUrl = process.env.NEXT_PUBLIC_BASE_URL ?? "https://howbusyisnyc.yashpurohit.me";
-  const absoluteOgUrl = `${baseUrl}${ogUrl}`;
+  // Stable URL — no query params — so Vercel CDN can cache it and iMessage doesn't time out
+  const ogImageUrl = `${baseUrl}/og`;
 
   return {
     title: "howbusy.is/nyc",
@@ -70,14 +56,14 @@ export async function generateMetadata(): Promise<Metadata> {
       title: `howbusy.is/nyc — ${label}`,
       description,
       url: baseUrl,
-      images: [{ url: absoluteOgUrl, width: 1200, height: 630, alt: `NYC busyness score: ${score}/100 — ${label}` }],
+      images: [{ url: ogImageUrl, width: 1200, height: 630, alt: `NYC is ${label} right now — ${score}/100` }],
       type: "website",
     },
     twitter: {
       card: "summary_large_image",
       title: `howbusy.is/nyc — ${label}`,
       description,
-      images: [absoluteOgUrl],
+      images: [ogImageUrl],
     },
   };
 }
