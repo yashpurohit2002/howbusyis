@@ -3,40 +3,43 @@
 import { useState, useRef, useEffect, useCallback } from "react";
 import { MtaSignalResult, LineStatusEntry } from "@/app/lib/types";
 import { NEIGHBORHOOD_LINES, findRoute, LINE_COLORS } from "@/app/lib/nyc-data";
+import {
+  SUBWAY_STATIONS,
+  nearestStation,
+  getGtfsDir,
+  getDirectionLabel,
+  getPlatformForLine,
+  stationDistM,
+} from "@/app/lib/nyc-stations";
 
 interface Props {
   mta: MtaSignalResult;
   onHighlight: (lines: string[]) => void;
 }
 
-// Haversine distance in meters (client-side, no import needed)
 function distM(lat1: number, lon1: number, lat2: number, lon2: number): number {
   const R = 6371000;
   const dLat = ((lat2 - lat1) * Math.PI) / 180;
   const dLon = ((lon2 - lon1) * Math.PI) / 180;
   const a =
     Math.sin(dLat / 2) ** 2 +
-    Math.cos((lat1 * Math.PI) / 180) * Math.cos((lat2 * Math.PI) / 180) * Math.sin(dLon / 2) ** 2;
+    Math.cos((lat1 * Math.PI) / 180) *
+      Math.cos((lat2 * Math.PI) / 180) *
+      Math.sin(dLon / 2) ** 2;
   return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
 }
 
-function nearestNeighborhood(lat: number, lon: number): { name: string; dist: number } | null {
-  let best: { name: string; dist: number } | null = null;
-  for (const [name, data] of Object.entries(NEIGHBORHOOD_LINES)) {
-    const d = distM(lat, lon, data.lat, data.lon);
-    if (!best || d < best.dist) best = { name, dist: d };
-  }
-  return best;
+function fmtDist(meters: number): string {
+  const mi = meters / 1609.34;
+  return mi < 0.1 ? `${Math.round(meters)} ft` : `${mi.toFixed(1)} mi`;
 }
 
-function fmtDist(meters: number): string {
-  const ft = Math.round(meters * 3.28084);
-  return ft < 1000 ? `${ft} ft` : `${(ft / 5280).toFixed(1)} mi`;
+function walkMin(meters: number): number {
+  return Math.round(meters / 80); // ~80m per min walking
 }
 
 function mapsUrl(from: string, to: string): string {
-  const base = "https://www.google.com/maps/dir/";
-  return `${base}${encodeURIComponent(from)}/${encodeURIComponent(to)}/?travelmode=transit`;
+  return `https://www.google.com/maps/dir/${encodeURIComponent(from)}/${encodeURIComponent(to)}/?travelmode=transit`;
 }
 
 function LinePill({ line, status }: { line: string; status?: LineStatusEntry }) {
@@ -62,14 +65,11 @@ function LinePill({ line, status }: { line: string; status?: LineStatusEntry }) 
   );
 }
 
-interface Suggestion {
-  displayName: string;
-  lat: number;
-  lon: number;
-}
+// ── Autocomplete input ────────────────────────────────────────────────────────
+
+interface Suggestion { displayName: string; lat: number; lon: number }
 
 function shortName(displayName: string): string {
-  // Take first 2 parts (e.g. "Central Park, Manhattan, New York..." → "Central Park, Manhattan")
   return displayName.split(",").slice(0, 2).join(",").trim();
 }
 
@@ -96,9 +96,7 @@ function PlaceInput({ label, value, onChange, placeholder }: PlaceInputProps) {
       setSuggestions(Array.isArray(data) ? data : []);
       setOpen(Array.isArray(data) && data.length > 0);
       setActiveIdx(-1);
-    } catch {
-      setSuggestions([]);
-    }
+    } catch { setSuggestions([]); }
   }, []);
 
   const handleChange = (v: string) => {
@@ -113,12 +111,9 @@ function PlaceInput({ label, value, onChange, placeholder }: PlaceInputProps) {
     setOpen(false);
   };
 
-  // Close on outside click
   useEffect(() => {
     const handler = (e: MouseEvent) => {
-      if (containerRef.current && !containerRef.current.contains(e.target as Node)) {
-        setOpen(false);
-      }
+      if (containerRef.current && !containerRef.current.contains(e.target as Node)) setOpen(false);
     };
     document.addEventListener("mousedown", handler);
     return () => document.removeEventListener("mousedown", handler);
@@ -135,10 +130,10 @@ function PlaceInput({ label, value, onChange, placeholder }: PlaceInputProps) {
         onFocus={() => suggestions.length > 0 && setOpen(true)}
         onKeyDown={(e) => {
           if (!open) return;
-          if (e.key === "ArrowDown") { e.preventDefault(); setActiveIdx(i => Math.min(i + 1, suggestions.length - 1)); }
-          else if (e.key === "ArrowUp") { e.preventDefault(); setActiveIdx(i => Math.max(i - 1, 0)); }
+          if (e.key === "ArrowDown") { e.preventDefault(); setActiveIdx((i) => Math.min(i + 1, suggestions.length - 1)); }
+          else if (e.key === "ArrowUp") { e.preventDefault(); setActiveIdx((i) => Math.max(i - 1, 0)); }
           else if (e.key === "Enter" && activeIdx >= 0) { e.preventDefault(); select(suggestions[activeIdx]); }
-          else if (e.key === "Escape") { setOpen(false); }
+          else if (e.key === "Escape") setOpen(false);
         }}
         autoComplete="off"
       />
@@ -147,12 +142,10 @@ function PlaceInput({ label, value, onChange, placeholder }: PlaceInputProps) {
           {suggestions.map((s, i) => (
             <li
               key={i}
-              className={`px-3 py-2.5 text-sm cursor-pointer transition-colors ${
-                i === activeIdx ? "bg-white/10 text-white" : "text-white/70 hover:bg-white/8 hover:text-white"
-              }`}
+              className={`px-3 py-2.5 text-sm cursor-pointer transition-colors ${i === activeIdx ? "bg-white/10 text-white" : "text-white/70 hover:bg-white/8 hover:text-white"}`}
               onMouseDown={(e) => { e.preventDefault(); select(s); }}
             >
-              <span className="font-medium">{shortName(s.displayName)}</span>
+              {shortName(s.displayName)}
             </li>
           ))}
         </ul>
@@ -161,21 +154,60 @@ function PlaceInput({ label, value, onChange, placeholder }: PlaceInputProps) {
   );
 }
 
+// ── Arrivals badge ─────────────────────────────────────────────────────────────
+
+function ArrivalsBadge({ gtfsId, feed, dir }: { gtfsId: string; feed: string; dir: "N" | "S" }) {
+  const [arrivals, setArrivals] = useState<number[] | null>(null);
+
+  useEffect(() => {
+    fetch(`/api/arrivals?gtfsId=${gtfsId}&feed=${encodeURIComponent(feed)}&dir=${dir}`)
+      .then((r) => r.json())
+      .then((d) => setArrivals(d.arrivals ?? null))
+      .catch(() => setArrivals(null));
+  }, [gtfsId, feed, dir]);
+
+  if (!arrivals) return null;
+  if (arrivals.length === 0) return <span className="text-white/30 text-xs">No arrivals data</span>;
+
+  return (
+    <span className="text-white/50 text-xs">
+      Next: {arrivals.map((m, i) => (
+        <span key={i}>
+          <span className={m <= 2 ? "text-emerald-400 font-semibold" : "text-white/70"}>
+            {m === 0 ? "now" : `${m} min`}
+          </span>
+          {i < arrivals.length - 1 && <span className="text-white/30"> · </span>}
+        </span>
+      ))}
+    </span>
+  );
+}
+
+// ── Main component ─────────────────────────────────────────────────────────────
+
+interface GeoResult { lat: number; lon: number; displayName: string }
+
 interface RouteResult {
   fromDisplay: string;
   toDisplay: string;
-  fromNeighborhood: string;
-  toNeighborhood: string;
-  fromDist: number;
-  toDist: number;
-  fromLines: string[];
-  toLines: string[];
-  delayedLines: string[];
-  steps: string[];
-  directLine?: string;
-  transferHub?: string;
   walkable: boolean;
   totalDistM: number;
+  steps: StepInfo[];
+  allLines: string[];
+  delayedLines: string[];
+  totalEstMin: number;
+}
+
+interface StepInfo {
+  type: "walk" | "train" | "transfer" | "delay";
+  text: string;
+  distM?: number;
+  line?: string;
+  direction?: string;
+  dirCode?: "N" | "S";
+  stationName?: string;
+  gtfsId?: string;
+  feed?: string;
 }
 
 export function TripPlanner({ mta, onHighlight }: Props) {
@@ -185,9 +217,7 @@ export function TripPlanner({ mta, onHighlight }: Props) {
   const [error, setError] = useState<string | null>(null);
   const [result, setResult] = useState<RouteResult | null>(null);
 
-  const statusMap = Object.fromEntries(
-    (mta.lineStatuses ?? []).map((e) => [e.line, e])
-  );
+  const statusMap = Object.fromEntries((mta.lineStatuses ?? []).map((e) => [e.line, e]));
 
   const handlePlan = async () => {
     if (!from.trim() || !to.trim()) return;
@@ -202,96 +232,190 @@ export function TripPlanner({ mta, onHighlight }: Props) {
         fetch(`/api/geocode?q=${encodeURIComponent(to)}`),
       ]);
 
-      if (!fromRes.ok) {
-        const j = await fromRes.json();
-        setError(j.error ?? `Could not find "${from}"`);
+      if (!fromRes.ok) { setError((await fromRes.json()).error ?? `Could not find "${from}"`); return; }
+      if (!toRes.ok)   { setError((await toRes.json()).error ?? `Could not find "${to}"`);   return; }
+
+      const fromGeo: GeoResult = await fromRes.json();
+      const toGeo: GeoResult = await toRes.json();
+
+      const totalDistM = distM(fromGeo.lat, fromGeo.lon, toGeo.lat, toGeo.lon);
+      const walkable = totalDistM < 800;
+
+      const steps: StepInfo[] = [];
+
+      if (walkable) {
+        const wm = walkMin(totalDistM);
+        steps.push({
+          type: "walk",
+          text: `Walk ${fmtDist(totalDistM)} (≈${wm} min) — close enough to skip the subway.`,
+          distM: totalDistM,
+        });
+        setResult({
+          fromDisplay: shortName(fromGeo.displayName),
+          toDisplay: shortName(toGeo.displayName),
+          walkable: true,
+          totalDistM,
+          steps,
+          allLines: [],
+          delayedLines: [],
+          totalEstMin: wm,
+        });
         return;
       }
-      if (!toRes.ok) {
-        const j = await toRes.json();
-        setError(j.error ?? `Could not find "${to}"`);
-        return;
+
+      // Find nearest neighborhoods for line lookup
+      let fromNeighborhood: { name: string; dist: number } | null = null;
+      let toNeighborhood: { name: string; dist: number } | null = null;
+
+      for (const [name, data] of Object.entries(NEIGHBORHOOD_LINES)) {
+        const d = distM(fromGeo.lat, fromGeo.lon, data.lat, data.lon);
+        if (!fromNeighborhood || d < fromNeighborhood.dist) fromNeighborhood = { name, dist: d };
+        const d2 = distM(toGeo.lat, toGeo.lon, data.lat, data.lon);
+        if (!toNeighborhood || d2 < toNeighborhood.dist) toNeighborhood = { name, dist: d2 };
       }
 
-      const fromGeo = await fromRes.json();
-      const toGeo = await toRes.json();
-
-      const fromNearest = nearestNeighborhood(fromGeo.lat, fromGeo.lon);
-      const toNearest = nearestNeighborhood(toGeo.lat, toGeo.lon);
-
-      if (!fromNearest || !toNearest) {
+      if (!fromNeighborhood || !toNeighborhood) {
         setError("Could not match locations to NYC neighborhoods.");
         return;
       }
 
-      const fromData = NEIGHBORHOOD_LINES[fromNearest.name];
-      const toData = NEIGHBORHOOD_LINES[toNearest.name];
+      const fromData = NEIGHBORHOOD_LINES[fromNeighborhood.name];
+      const toData = NEIGHBORHOOD_LINES[toNeighborhood.name];
+      const route = findRoute(fromData.lines, toData.lines, fromNeighborhood.name, toNeighborhood.name);
 
-      const totalDistM = distM(fromGeo.lat, fromGeo.lon, toGeo.lat, toGeo.lon);
-      const walkable = totalDistM < 800; // under ~10 min walk
-
-      const allInvolvedLines = Array.from(new Set([...fromData.lines, ...toData.lines]));
-      const delayedLines = allInvolvedLines.filter(
+      const allLines = Array.from(new Set([...fromData.lines, ...toData.lines]));
+      const delayedLines = allLines.filter(
         (l) => statusMap[l]?.status === "delayed" || statusMap[l]?.status === "suspended"
       );
 
-      const route = findRoute(fromData.lines, toData.lines, fromNearest.name, toNearest.name);
+      // Determine which line to take
+      const primaryLine = route.directLine ?? fromData.lines[0];
 
-      // Build step-by-step steps
-      const steps: string[] = [];
+      // Find nearest STATION (not just neighborhood) to origin
+      const fromStation = nearestStation(fromGeo.lat, fromGeo.lon, fromData.lines);
+      const toStation = nearestStation(toGeo.lat, toGeo.lon, toData.lines);
 
-      if (walkable) {
-        steps.push(`Walk ${fmtDist(totalDistM)} directly — it's close enough.`);
-      } else {
-        if (fromNearest.dist > 150) {
-          steps.push(`Walk ${fmtDist(fromNearest.dist)} to the nearest ${fromNearest.name.replace(/\b\w/g, c => c.toUpperCase())} subway entrance.`);
-        }
+      const dir = getGtfsDir(primaryLine, fromGeo.lat, fromGeo.lon, toGeo.lat, toGeo.lon);
+      const dirLabel = getDirectionLabel(primaryLine, dir);
 
-        if (route.directLine) {
-          steps.push(`Take the ${route.directLine} train.`);
-        } else if (route.transferHub) {
-          const fromMatch = fromData.lines.find(l =>
-            NEIGHBORHOOD_LINES[toNearest.name]?.lines.includes(l) === false
-          ) ?? fromData.lines[0];
-          steps.push(`Take the ${fromMatch} train to ${route.transferHub}.`);
-          steps.push(`Transfer and continue to ${toNearest.name.replace(/\b\w/g, c => c.toUpperCase())}.`);
-        } else {
-          steps.push(route.description);
-        }
+      // ── Build steps ──────────────────────────────────────────────────────
 
-        if (toNearest.dist > 150) {
-          steps.push(`Walk ${fmtDist(toNearest.dist)} to your destination.`);
-        }
+      let totalEst = 0;
 
-        if (delayedLines.length > 0) {
-          const dl = delayedLines.join(", ");
-          steps.push(`${dl} ${delayedLines.length === 1 ? "is" : "are"} showing delays right now. Leave extra time or check your route.`);
-        }
+      // Step 1: Walk to station
+      const walkToStation = fromStation
+        ? stationDistM(fromGeo.lat, fromGeo.lon, fromStation.station.lat, fromStation.station.lon)
+        : fromNeighborhood.dist;
+      const walkToMin = walkMin(walkToStation);
+      const stationName = fromStation?.station.name ?? `nearest ${fromNeighborhood.name} station`;
+
+      if (walkToStation > 80) {
+        steps.push({
+          type: "walk",
+          text: `Walk ${fmtDist(walkToStation)} (≈${walkToMin} min) to ${stationName}`,
+          distM: walkToStation,
+          stationName,
+        });
+        totalEst += walkToMin;
       }
 
-      // Shorten display names
-      const shorten = (s: string) => s.split(",")[0].trim();
+      // Step 2: Wait + train
+      const subwayDistM = distM(fromGeo.lat, fromGeo.lon, toGeo.lat, toGeo.lon);
+      // Avg subway speed ~27 kph with stops, factor 1.4 for routing
+      const subwayMin = Math.max(3, Math.round((subwayDistM / 1000 / 27) * 60 * 1.4));
+      const waitMin = 5; // avg wait
+      totalEst += waitMin + subwayMin;
 
+      // Get platform info for arrivals
+      const platform = fromStation
+        ? getPlatformForLine(fromStation.station, primaryLine)
+        : null;
+
+      if (route.directLine) {
+        steps.push({
+          type: "train",
+          text: `Take the ${route.directLine} train ${dirLabel}`,
+          line: route.directLine,
+          direction: dirLabel,
+          dirCode: dir,
+          stationName: fromStation?.station.name,
+          gtfsId: platform?.gtfsId,
+          feed: platform?.feed,
+        });
+      } else if (route.transferHub) {
+        // Two-leg trip
+        const leg1Line = fromData.lines.find((l) => !toData.lines.includes(l)) ?? fromData.lines[0];
+        const leg1Dir = getGtfsDir(leg1Line, fromGeo.lat, fromGeo.lon, toGeo.lat, toGeo.lon);
+        const leg1Platform = fromStation ? getPlatformForLine(fromStation.station, leg1Line) : null;
+        steps.push({
+          type: "train",
+          text: `Take the ${leg1Line} train ${getDirectionLabel(leg1Line, leg1Dir)} to ${route.transferHub}`,
+          line: leg1Line,
+          direction: getDirectionLabel(leg1Line, leg1Dir),
+          dirCode: leg1Dir,
+          stationName: fromStation?.station.name,
+          gtfsId: leg1Platform?.gtfsId,
+          feed: leg1Platform?.feed,
+        });
+        const leg2Line = toData.lines.find((l) => !fromData.lines.includes(l)) ?? toData.lines[0];
+        const leg2Dir = getGtfsDir(leg2Line, fromGeo.lat, fromGeo.lon, toGeo.lat, toGeo.lon);
+        steps.push({
+          type: "transfer",
+          text: `Transfer to the ${leg2Line} train ${getDirectionLabel(leg2Line, leg2Dir)} towards ${fromNeighborhood.name !== toNeighborhood.name ? toNeighborhood.name : "your destination"}`,
+          line: leg2Line,
+          direction: getDirectionLabel(leg2Line, leg2Dir),
+          dirCode: leg2Dir,
+        });
+      } else {
+        steps.push({
+          type: "train",
+          text: `Take ${fromData.lines.slice(0, 2).join(" or ")} towards ${toNeighborhood.name}`,
+          line: fromData.lines[0],
+          direction: dirLabel,
+          dirCode: dir,
+          stationName: fromStation?.station.name,
+          gtfsId: platform?.gtfsId,
+          feed: platform?.feed,
+        });
+      }
+
+      // Step 3: Walk to destination
+      const walkFromStation = toStation
+        ? stationDistM(toGeo.lat, toGeo.lon, toStation.station.lat, toStation.station.lon)
+        : toNeighborhood.dist;
+      const walkFromMin = walkMin(walkFromStation);
+
+      if (walkFromStation > 80) {
+        steps.push({
+          type: "walk",
+          text: `Walk ${fmtDist(walkFromStation)} (≈${walkFromMin} min) to your destination`,
+          distM: walkFromStation,
+        });
+        totalEst += walkFromMin;
+      }
+
+      // Delay warning
+      if (delayedLines.length > 0) {
+        steps.push({
+          type: "delay",
+          text: `${delayedLines.join(", ")} ${delayedLines.length === 1 ? "is" : "are"} showing delays — leave extra time or check your route.`,
+        });
+        totalEst += 10;
+      }
+
+      onHighlight(allLines);
       setResult({
-        fromDisplay: shorten(fromGeo.displayName),
-        toDisplay: shorten(toGeo.displayName),
-        fromNeighborhood: fromNearest.name,
-        toNeighborhood: toNearest.name,
-        fromDist: fromNearest.dist,
-        toDist: toNearest.dist,
-        fromLines: fromData.lines,
-        toLines: toData.lines,
-        delayedLines,
-        steps,
-        directLine: route.directLine,
-        transferHub: route.transferHub,
-        walkable,
+        fromDisplay: shortName(fromGeo.displayName),
+        toDisplay: shortName(toGeo.displayName),
+        walkable: false,
         totalDistM,
+        steps,
+        allLines,
+        delayedLines,
+        totalEstMin: totalEst,
       });
-
-      onHighlight(allInvolvedLines);
     } catch {
-      setError("Geocoding unavailable. Try again.");
+      setError("Something went wrong. Try again.");
     } finally {
       setLoading(false);
     }
@@ -300,24 +424,14 @@ export function TripPlanner({ mta, onHighlight }: Props) {
   return (
     <div className="space-y-3">
       <div className="flex gap-2 items-end flex-wrap sm:flex-nowrap">
-        <PlaceInput
-          label="From"
-          value={from}
-          onChange={setFrom}
-          placeholder="Home, restaurant, address..."
-        />
-        <PlaceInput
-          label="To"
-          value={to}
-          onChange={setTo}
-          placeholder="Bar, museum, friend's place..."
-        />
+        <PlaceInput label="From" value={from} onChange={setFrom} placeholder="Address, restaurant, landmark..." />
+        <PlaceInput label="To" value={to} onChange={setTo} placeholder="Bar, museum, friend's place..." />
         <button
           onClick={handlePlan}
           disabled={loading || !from.trim() || !to.trim()}
           className="px-4 py-2.5 rounded-xl bg-white/10 hover:bg-white/20 border border-white/10 text-sm text-white/80 hover:text-white transition-all whitespace-nowrap cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
         >
-          {loading ? "Looking..." : "Plan trip"}
+          {loading ? "Routing..." : "Plan trip"}
         </button>
       </div>
 
@@ -328,7 +442,7 @@ export function TripPlanner({ mta, onHighlight }: Props) {
       )}
 
       {result && (
-        <div className="bg-white/5 border border-white/10 rounded-xl p-4 space-y-3">
+        <div className="bg-white/5 border border-white/10 rounded-xl p-4 space-y-4">
           {/* From / To */}
           <div className="text-xs text-white/30 space-y-0.5">
             <p><span className="text-white/50">From:</span> {result.fromDisplay}</p>
@@ -336,64 +450,70 @@ export function TripPlanner({ mta, onHighlight }: Props) {
           </div>
 
           {/* Steps */}
-          <ol className="space-y-2">
+          <ol className="space-y-4">
             {result.steps.map((step, i) => {
-              const isDelay = step.includes("delay") || step.includes("Transfer");
+              const isDelay = step.type === "delay";
+              const isTrain = step.type === "train";
+              const isTransfer = step.type === "transfer";
+              const isWalk = step.type === "walk";
+              const lineColor = step.line ? (LINE_COLORS[step.line] ?? "#808183") : null;
+
               return (
-                <li key={i} className="flex gap-2.5 items-start">
-                  <span className={`mt-0.5 w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-bold shrink-0 ${
-                    isDelay ? "bg-yellow-900 text-yellow-400" : "bg-white/10 text-white/50"
-                  }`}>
-                    {i + 1}
-                  </span>
-                  <p className={`text-sm leading-relaxed ${isDelay ? "text-yellow-400" : "text-white/75"}`}>
-                    {step}
-                  </p>
+                <li key={i} className="flex gap-3 items-start">
+                  {/* Icon / step number */}
+                  <div className={`mt-0.5 w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-bold shrink-0 ${
+                    isDelay ? "bg-yellow-900 text-yellow-400" :
+                    isTrain || isTransfer ? "text-black" :
+                    "bg-white/10 text-white/50"
+                  }`}
+                    style={isTrain || isTransfer ? { backgroundColor: lineColor ?? "#808183" } : {}}
+                  >
+                    {isTrain || isTransfer ? step.line : i + 1}
+                  </div>
+
+                  <div className="flex-1 space-y-1.5">
+                    <p className={`text-sm leading-relaxed ${
+                      isDelay ? "text-yellow-400" :
+                      isWalk ? "text-white/60" :
+                      "text-white/85"
+                    }`}>
+                      {step.text}
+                    </p>
+
+                    {/* Live arrivals for train steps */}
+                    {(isTrain || isTransfer) && step.gtfsId && step.feed && step.dirCode && (
+                      <ArrivalsBadge gtfsId={step.gtfsId} feed={step.feed} dir={step.dirCode} />
+                    )}
+
+                    {/* Status badge for delayed lines */}
+                    {(isTrain || isTransfer) && step.line && statusMap[step.line]?.status === "delayed" && (
+                      <span className="text-xs text-yellow-400">⚠ Delays reported on this line</span>
+                    )}
+                  </div>
                 </li>
               );
             })}
           </ol>
 
-          {/* Live line status */}
-          {!result.walkable && (result.fromLines.length > 0 || result.toLines.length > 0) && (
-            <div className="flex gap-4 flex-wrap text-xs text-white/40 pt-1 border-t border-white/5">
-              {result.fromLines.length > 0 && (
-                <span className="flex items-center gap-1">
-                  Near origin:
-                  <span className="flex gap-1 ml-1">
-                    {result.fromLines.slice(0, 6).map((l) => (
-                      <LinePill key={l} line={l} status={statusMap[l]} />
-                    ))}
-                  </span>
-                </span>
-              )}
-              {result.toLines.length > 0 && (
-                <span className="flex items-center gap-1">
-                  Near dest:
-                  <span className="flex gap-1 ml-1">
-                    {result.toLines.slice(0, 6).map((l) => (
-                      <LinePill key={l} line={l} status={statusMap[l]} />
-                    ))}
-                  </span>
-                </span>
-              )}
-            </div>
-          )}
-
-          {/* Google Maps fallback */}
-          <a
-            href={mapsUrl(from, to)}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="flex items-center gap-1.5 text-xs text-white/30 hover:text-white/60 transition-colors"
-          >
-            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M18 13v6a2 2 0 01-2 2H5a2 2 0 01-2-2V8a2 2 0 012-2h6" />
-              <polyline points="15 3 21 3 21 9" />
-              <line x1="10" y1="14" x2="21" y2="3" />
-            </svg>
-            Full directions in Google Maps
-          </a>
+          {/* Estimated time */}
+          <div className="flex items-center justify-between pt-2 border-t border-white/5">
+            <span className="text-xs text-white/40">
+              Est. trip: <span className="text-white/70 font-medium">≈{result.totalEstMin} min</span>
+            </span>
+            <a
+              href={mapsUrl(from, to)}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="flex items-center gap-1.5 text-xs text-white/30 hover:text-white/60 transition-colors"
+            >
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M18 13v6a2 2 0 01-2 2H5a2 2 0 01-2-2V8a2 2 0 012-2h6" />
+                <polyline points="15 3 21 3 21 9" />
+                <line x1="10" y1="14" x2="21" y2="3" />
+              </svg>
+              Full directions in Maps
+            </a>
+          </div>
         </div>
       )}
     </div>

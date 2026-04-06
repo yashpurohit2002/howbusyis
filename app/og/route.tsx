@@ -35,7 +35,7 @@ export async function GET(request: Request) {
     events  && { icon: "📅", value: events },
   ].filter(Boolean) as { icon: string; value: string }[];
 
-  return new ImageResponse(
+  const img = new ImageResponse(
     (
       <div
         style={{
@@ -192,4 +192,11 @@ export async function GET(request: Request) {
     ),
     { width: 1200, height: 630 }
   );
+
+  return new Response(img.body, {
+    headers: {
+      "Content-Type": "image/png",
+      "Cache-Control": "public, max-age=300, s-maxage=300, stale-while-revalidate=60",
+    },
+  });
 }

@@ -60,20 +60,24 @@ export async function generateMetadata(): Promise<Metadata> {
   const label = data?.label ?? "How busy?";
   const description = buildDescription(data, score);
 
+  const baseUrl = process.env.NEXT_PUBLIC_BASE_URL ?? "https://howbusyisnyc.yashpurohit.me";
+  const absoluteOgUrl = `${baseUrl}${ogUrl}`;
+
   return {
     title: "howbusy.is/nyc",
     description,
     openGraph: {
       title: `howbusy.is/nyc — ${label}`,
       description,
-      images: [ogUrl],
+      url: baseUrl,
+      images: [{ url: absoluteOgUrl, width: 1200, height: 630, alt: `NYC busyness score: ${score}/100 — ${label}` }],
       type: "website",
     },
     twitter: {
       card: "summary_large_image",
       title: `howbusy.is/nyc — ${label}`,
       description,
-      images: [ogUrl],
+      images: [absoluteOgUrl],
     },
   };
 }
