@@ -220,7 +220,7 @@ export function BusyDashboard() {
 
         {/* ── Footer ── */}
         <footer className="text-center text-white/25 text-xs space-y-1 pb-4">
-          <p>Updated at {formatTime(data.lastUpdated)} ET &middot; refreshes every 5 min</p>
+          <p>Updated at {formatTime(data.lastUpdated)} EST &middot; refreshes every 5 min</p>
           <p>
             Built by{" "}
             <a

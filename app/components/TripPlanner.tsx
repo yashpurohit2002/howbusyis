@@ -265,7 +265,7 @@ export function TripPlanner({ mta, onHighlight }: Props) {
         const wm = walkMin(totalDistM);
         steps.push({
           type: "walk",
-          text: `Walk ${fmtDist(totalDistM)} (≈${wm} min) — close enough to skip the subway.`,
+          text: `Walk ${fmtDist(totalDistM)} (~${wm} min). Close enough to skip the subway.`,
           distM: totalDistM,
         });
         setResult({
@@ -418,7 +418,7 @@ export function TripPlanner({ mta, onHighlight }: Props) {
       if (delayedLines.length > 0) {
         steps.push({
           type: "delay",
-          text: `${delayedLines.join(", ")} ${delayedLines.length === 1 ? "is" : "are"} showing delays — leave extra time or check your route.`,
+          text: `${delayedLines.join(", ")} ${delayedLines.length === 1 ? "is" : "are"} showing delays. Leave extra time or check your route.`,
         });
         totalEst += 10;
       }

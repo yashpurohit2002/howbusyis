@@ -1,9 +1,9 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useEffect, useRef } from "react";
 import { CitiBikeSignalResult } from "@/app/lib/types";
 import { CitiBikeSearchResponse } from "@/app/api/citibike/route";
-import { ALL_NEIGHBORHOODS } from "@/app/lib/nyc-data";
+import { GeocodeResult } from "@/app/api/geocode/route";
 
 interface Props {
   citibike: CitiBikeSignalResult;
@@ -80,16 +80,23 @@ export function CitiBikeCard({ citibike, textClass }: Props) {
   const [result, setResult] = useState<CitiBikeSearchResponse | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
-  const [showSuggestions, setShowSuggestions] = useState(false);
   const [geoLoading, setGeoLoading] = useState(false);
+  const [suggestions, setSuggestions] = useState<GeocodeResult[]>([]);
+  const [showSuggestions, setShowSuggestions] = useState(false);
+  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  const suggestions = useMemo(
-    () =>
-      query.length > 0
-        ? ALL_NEIGHBORHOODS.filter((n) => n.includes(query.toLowerCase())).slice(0, 5)
-        : [],
-    [query]
-  );
+  // Debounced geocode suggest
+  useEffect(() => {
+    if (debounceRef.current) clearTimeout(debounceRef.current);
+    if (query.length < 2) { setSuggestions([]); return; }
+    debounceRef.current = setTimeout(async () => {
+      try {
+        const res = await fetch(`/api/geocode?q=${encodeURIComponent(query)}&suggest=1`);
+        if (res.ok) setSuggestions(await res.json());
+      } catch { /* ignore */ }
+    }, 250);
+    return () => { if (debounceRef.current) clearTimeout(debounceRef.current); };
+  }, [query]);
 
   const searchByCoords = async (lat: number, lon: number) => {
     setGeoLoading(false);
@@ -123,19 +130,24 @@ export function CitiBikeCard({ citibike, textClass }: Props) {
     );
   };
 
-  const search = async (neighborhood: string) => {
-    if (!neighborhood.trim()) return;
+  const search = async (q: string) => {
+    if (!q.trim()) return;
     setLoading(true);
     setError(null);
     setResult(null);
     setShowSuggestions(false);
+    setSuggestions([]);
     try {
-      const res = await fetch(`/api/citibike?q=${encodeURIComponent(neighborhood)}`);
-      const data = await res.json();
-      if (!res.ok) {
-        setError(data.error ?? "Something went wrong");
+      // Geocode the query to get coords, then find nearby docks
+      const geoRes = await fetch(`/api/geocode?q=${encodeURIComponent(q)}`);
+      if (geoRes.ok) {
+        const geo: GeocodeResult = await geoRes.json();
+        const res = await fetch(`/api/citibike?lat=${geo.lat}&lon=${geo.lon}`);
+        const data = await res.json();
+        if (!res.ok) setError(data.error ?? "Something went wrong");
+        else setResult(data);
       } else {
-        setResult(data);
+        setError("Could not find that location in NYC.");
       }
     } catch {
       setError("Couldn't reach the Citi Bike feed");
@@ -159,7 +171,7 @@ export function CitiBikeCard({ citibike, textClass }: Props) {
         <div className="flex gap-2">
           <input
             className="flex-1 bg-white/5 border border-white/10 rounded-xl px-3 py-2 text-sm text-white placeholder-white/30 focus:outline-none focus:border-white/25"
-            placeholder="Search neighborhood..."
+            placeholder="Address or neighborhood..."
             value={query}
             onChange={(e) => { setQuery(e.target.value); setShowSuggestions(true); }}
             onFocus={() => setShowSuggestions(true)}
@@ -186,12 +198,12 @@ export function CitiBikeCard({ citibike, textClass }: Props) {
         {showSuggestions && suggestions.length > 0 && (
           <ul className="absolute z-10 top-full mt-1 left-0 right-0 bg-gray-900 border border-white/10 rounded-xl overflow-hidden shadow-xl">
             {suggestions.map((s) => (
-              <li key={s}>
+              <li key={`${s.lat},${s.lon}`}>
                 <button
-                  className="w-full text-left px-3 py-2 text-sm text-white/60 hover:bg-white/10 hover:text-white capitalize"
-                  onMouseDown={() => { setQuery(s); search(s); }}
+                  className="w-full text-left px-3 py-2 text-sm text-white/60 hover:bg-white/10 hover:text-white"
+                  onMouseDown={() => { setQuery(s.displayName); searchByCoords(s.lat, s.lon); setShowSuggestions(false); }}
                 >
-                  {s}
+                  {s.displayName}
                 </button>
               </li>
             ))}

@@ -13,7 +13,7 @@ export function ShareButton({ score, label }: Props) {
   const [state, setState] = useState<"idle" | "copied">("idle");
 
   const handleShare = async () => {
-    const text = `NYC is "${label}" right now — ${score}/100`;
+    const text = `NYC is "${label}" right now. ${score}/100`;
     const url = window.location.href;
 
     if (navigator.share) {

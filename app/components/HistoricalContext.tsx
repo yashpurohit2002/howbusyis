@@ -46,11 +46,11 @@ export function HistoricalContext({ percentile, score, historicalScores }: Props
   } else if (percentile >= 80) {
     copy = `Busier than ${percentile}% of recent days`;
   } else if (percentile >= 50) {
-    copy = `Above average — busier than ${percentile}% of recent days`;
+    copy = `Above average. Busier than ${percentile}% of recent days`;
   } else if (percentile >= 20) {
-    copy = `Pretty normal — busier than ${percentile}% of recent days`;
+    copy = `Pretty normal. Busier than ${percentile}% of recent days`;
   } else {
-    copy = `Quieter than ${100 - percentile}% of recent days — enjoy it`;
+    copy = `Quieter than ${100 - percentile}% of recent days. Enjoy it.`;
   }
 
   return (

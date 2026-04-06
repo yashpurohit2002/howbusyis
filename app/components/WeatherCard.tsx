@@ -107,7 +107,7 @@ export function WeatherCard({ weather, textClass }: Props) {
         <div className="flex items-center gap-2 bg-blue-950/60 border border-blue-800/50 rounded-xl px-3 py-2">
           <span className="text-lg">☂️</span>
           <p className="text-sm text-blue-300 font-medium">
-            Rain likely{umbrellaHour ? ` around ${umbrellaHour.hour}` : " soon"} — bring an umbrella.
+            Rain likely{umbrellaHour ? ` around ${umbrellaHour.hour}` : " soon"}. Bring an umbrella.
           </p>
         </div>
       )}

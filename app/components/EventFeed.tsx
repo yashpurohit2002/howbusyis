@@ -61,8 +61,8 @@ export function EventFeed({ events, textClass }: Props) {
           <span className="text-base">🏟️</span>
           <p className="text-xs text-orange-300 font-medium">
             {bigEvents.length === 1
-              ? `${bigEvents[0].venue} tonight — expect heavy crowds nearby`
-              : `${bigEvents.length} stadium-level events — several neighborhoods will be packed`}
+              ? `${bigEvents[0].venue} tonight. Expect heavy crowds nearby.`
+              : `${bigEvents.length} stadium-level events. Several neighborhoods will be packed.`}
           </p>
         </div>
       )}

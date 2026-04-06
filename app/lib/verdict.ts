@@ -48,7 +48,7 @@ export function computeGoOutVerdict(data: BusyResponse): GoOutVerdict {
     return {
       verdict: "YES",
       mood: "cautious",
-      reason: `City is absolutely slammed and conditions are rough. Still worth it — but budget extra time, check your route, and dress for the weather.`,
+      reason: `City is absolutely slammed and conditions are rough. Still worth it, but budget extra time, check your route, and dress for the weather.`,
       color: "text-yellow-400",
     };
   }
@@ -57,7 +57,7 @@ export function computeGoOutVerdict(data: BusyResponse): GoOutVerdict {
     return {
       verdict: "YES",
       mood: "cautious",
-      reason: "Rough weather AND subway problems right now. Go if you need to — just check your specific line before heading out.",
+      reason: "Rough weather AND subway problems right now. Go if you need to. Just check your specific line before heading out.",
       color: "text-yellow-400",
     };
   }
@@ -105,7 +105,7 @@ export function computeGoOutVerdict(data: BusyResponse): GoOutVerdict {
     return {
       verdict: "YES",
       mood: "positive",
-      reason: "Unusually chill out there — a rare NYC window. Go catch it before it's gone.",
+      reason: "Unusually chill out there. Rare NYC window. Go catch it before it's gone.",
       color: "text-emerald-400",
     };
   }
@@ -126,7 +126,7 @@ export function computeGoOutVerdict(data: BusyResponse): GoOutVerdict {
     return {
       verdict: "YES",
       mood: "positive",
-      reason: "Tons going on tonight — good luck picking one.",
+      reason: "Tons going on tonight. Good luck picking one.",
       color: "text-emerald-400",
     };
   }
@@ -136,7 +136,7 @@ export function computeGoOutVerdict(data: BusyResponse): GoOutVerdict {
     return {
       verdict: "YES",
       mood: "cautious",
-      reason: "A little rough out — throw on a jacket. Still a good time to be out.",
+      reason: "A little rough out. Throw on a jacket. Still a good time to be out.",
       color: "text-yellow-400",
     };
   }
