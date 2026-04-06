@@ -664,103 +664,79 @@ export function getTimeOfDayScore(tz: string): SignalResult {
 }
 
 // ---- Nightlife ----
-export async function getNightlifeScore(city: CityConfig): Promise<NightlifeSignalResult> {
-  const fallback: NightlifeSignalResult = {
-    label: "Nightlife",
-    detail: "Nightlife data unavailable",
-    score: 0,
-    error: true,
-    spots: [],
-    topPick: "",
-  };
+// Scoring weights: bar density 40% · time-of-day 35% · events nearby 20% · weekend 5%
+export function getNightlifeScore(city: CityConfig, events: EventItem[] = []): NightlifeSignalResult {
+  const nycNow = new Date(new Date().toLocaleString("en-US", { timeZone: city.timezoneTZ }));
+  const currentHour = nycNow.getHours();
+  const dayOfWeek = nycNow.getDay(); // 0=Sun, 5=Fri, 6=Sat
+  const isWeekend = dayOfWeek === 5 || dayOfWeek === 6 || dayOfWeek === 0;
+  const isNightTime = currentHour >= 20 || currentHour < 4;
 
-  try {
-    // Fetch 311 noise complaints from the last 6 hours with lat/lon
-    const sixHoursAgo = new Date(Date.now() - 6 * 60 * 60 * 1000);
-    const isoStr = sixHoursAgo.toISOString().split(".")[0];
+  // Only use Ticketmaster events (concerts, shows, sports) — not street permits
+  const entertainmentEvents = events.filter((e) => e.source === "ticketmaster");
 
-    const params = new URLSearchParams({
-      $where: `complaint_type like '%Noise%' AND created_date > '${isoStr}' AND latitude IS NOT NULL`,
-      $select: "latitude,longitude",
-      $limit: "2000",
+  const spots = NIGHTLIFE_NEIGHBORHOODS.map((n) => {
+    // ── Bar density score (0-40 pts) ──────────────────────────────────────────
+    // Reflects the actual number of bars/clubs in the area — the foundation of nightlife
+    const barScore = Math.round((n.barDensity / 100) * 40);
+
+    // ── Time-of-day score (0-35 pts) ─────────────────────────────────────────
+    // How close are we to this neighborhood's actual peak hour?
+    const hoursToPeak = (n.peakHour - currentHour + 24) % 24;
+    const timeFactor =
+      hoursToPeak === 0 ? 1.0 :
+      hoursToPeak <= 1 ? 0.9 :
+      hoursToPeak <= 2 ? 0.75 :
+      hoursToPeak <= 3 ? 0.55 :
+      hoursToPeak >= 22 ? 0.65 : // just past peak — still buzzing
+      hoursToPeak >= 21 ? 0.45 :
+      isNightTime ? 0.25 : 0.05; // daytime
+    const timeScore = Math.round(timeFactor * 35);
+
+    // ── Events score (0-20 pts) ───────────────────────────────────────────────
+    // Boost if there are concerts/shows near this neighborhood tonight
+    const nearbyEvents = entertainmentEvents.filter((e) => {
+      const nHood = e.neighborhood?.toLowerCase() ?? "";
+      const spotName = n.name.toLowerCase();
+      // Match by neighborhood name or by borough + nearby borough overlap
+      return nHood.includes(spotName) || spotName.includes(nHood.split(" ")[0] ?? "x");
     });
+    const eventsRaw = nearbyEvents.reduce((sum, e) => {
+      return sum + (e.crowdSize === "Packed" ? 20 : e.crowdSize === "Medium" ? 10 : 4);
+    }, 0);
+    const eventsScore = Math.min(20, eventsRaw);
 
-    const res = await fetch(`${city.openDataEndpoint}?${params}`, {
-      next: { revalidate: 0 },
-      signal: AbortSignal.timeout(10000),
-    });
+    // ── Weekend bonus (0-5 pts) ───────────────────────────────────────────────
+    const weekendBonus = isWeekend ? 5 : 0;
 
-    type NoiseRecord = { latitude: string; longitude: string };
-    const complaints: NoiseRecord[] = res.ok ? await res.json() : [];
-
-    // Get current hour in NYC time
-    const nycNow = new Date(new Date().toLocaleString("en-US", { timeZone: city.timezoneTZ }));
-    const currentHour = nycNow.getHours();
-    const isWeekend = [0, 5, 6].includes(nycNow.getDay()); // Sun, Fri, Sat
-
-    // Score each neighborhood
-    const spots = NIGHTLIFE_NEIGHBORHOODS.map((n) => {
-      const [minLat, maxLat, minLon, maxLon] = n.bounds;
-
-      // Count noise complaints within bounds
-      const noiseCount = complaints.filter((c) => {
-        const lat = parseFloat(c.latitude);
-        const lon = parseFloat(c.longitude);
-        return lat >= minLat && lat <= maxLat && lon >= minLon && lon <= maxLon;
-      }).length;
-
-      // Time-of-day factor: how close are we to peak?
-      const hoursToPeak = ((n.peakHour - currentHour + 24) % 24);
-      const isNightTime = currentHour >= 20 || currentHour < 4;
-      const timeFactor =
-        hoursToPeak === 0 ? 1.0 :
-        hoursToPeak <= 1 ? 0.9 :
-        hoursToPeak <= 2 ? 0.7 :
-        hoursToPeak <= 3 ? 0.5 :
-        hoursToPeak >= 21 ? 0.6 : // just past peak
-        isNightTime ? 0.3 : 0.1;
-
-      // Weekend bonus
-      const weekendBonus = isWeekend ? 15 : 0;
-
-      // Noise score: normalize to ~0-60 points (some neighborhoods cap at ~20 complaints/6h)
-      const noiseScore = Math.min(60, noiseCount * 3);
-
-      // Time score: 0-40 points
-      const timeScore = Math.round(timeFactor * 40);
-
-      const activityScore = Math.min(100, noiseScore + timeScore + weekendBonus);
-      const hot = isActive(n.peakHour, currentHour) || activityScore >= 50;
-
-      return {
-        name: n.name,
-        borough: n.borough,
-        vibe: n.vibe,
-        bestFor: n.bestFor,
-        lines: n.lines,
-        peakLabel: peakLabel(n.peakHour),
-        activityScore,
-        noiseCount,
-        isHot: hot,
-      };
-    });
-
-    // Sort by activity score descending
-    spots.sort((a, b) => b.activityScore - a.activityScore);
-
-    const topPick = spots[0]?.name ?? "";
-    const hotCount = spots.filter((s) => s.isHot).length;
+    const activityScore = Math.min(100, barScore + timeScore + eventsScore + weekendBonus);
+    const hot = isActive(n.peakHour, currentHour) || activityScore >= 55;
 
     return {
-      label: "Nightlife",
-      detail: hotCount > 0 ? `${hotCount} neighborhood${hotCount === 1 ? "" : "s"} are active tonight` : "Quiet night across the city",
-      score: Math.min(10, Math.round(spots.slice(0, 3).reduce((s, n) => s + n.activityScore, 0) / 30)),
-      spots,
-      topPick,
+      name: n.name,
+      borough: n.borough,
+      vibe: n.vibe,
+      bestFor: n.bestFor,
+      lines: n.lines,
+      peakLabel: peakLabel(n.peakHour),
+      activityScore,
+      noiseCount: 0, // no longer used
+      isHot: hot,
     };
-  } catch {
-    return fallback;
-  }
+  });
+
+  spots.sort((a, b) => b.activityScore - a.activityScore);
+
+  const topPick = spots[0]?.name ?? "";
+  const hotCount = spots.filter((s) => s.isHot).length;
+
+  return {
+    label: "Nightlife",
+    detail: hotCount > 0 ? `${hotCount} neighborhood${hotCount === 1 ? "" : "s"} are active tonight` : "Quiet night across the city",
+    score: Math.min(10, Math.round(spots.slice(0, 3).reduce((s, n) => s + n.activityScore, 0) / 30)),
+    spots,
+    topPick,
+  };
 }
 
 // ---- Total score ----

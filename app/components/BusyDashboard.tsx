@@ -250,6 +250,15 @@ export function BusyDashboard() {
             >
               Yash Purohit
             </a>
+            {" "}&middot;{" "}
+            <a
+              href="https://www.yashpurohit.me"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="hover:text-white/50 underline underline-offset-2 transition-colors"
+            >
+              yashpurohit.me
+            </a>
           </p>
         </footer>
       </div>

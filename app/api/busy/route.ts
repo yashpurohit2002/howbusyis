@@ -98,15 +98,17 @@ export async function GET(request: Request) {
   }
 
   // ── Cache miss: fan out to all APIs ──
-  const [mta, weather, events, noise, citibike, dsny, nightlife] = await Promise.all([
+  const [mta, weather, events, noise, citibike, dsny] = await Promise.all([
     getMtaScore(city),
     getWeatherScore(city),
     getEventsScore(city),
     getNoiseScore(city),
     getCitiBikeScore(),
     getDsnyScore(city),
-    getNightlifeScore(city),
   ]);
+
+  // Nightlife is now synchronous — uses events data already fetched above
+  const nightlife = getNightlifeScore(city, events.events);
 
   const timeOfDay = getTimeOfDayScore(city.timezoneTZ);
 
