@@ -15,7 +15,7 @@ export const NIGHTLIFE_NEIGHBORHOODS: NightlifeNeighborhood[] = [
     borough: "Brooklyn",
     vibe: "Brooklyn's main stage. Rooftop bars, live music, and every type of bar in a 4-block radius.",
     bestFor: ["Live music", "Rooftop bars", "Late nights"],
-    peakHour: 22,
+    peakHour: 23,
     lines: ["L", "J", "M", "Z"],
     bounds: [40.706, 40.722, -73.972, -73.940],
   },
@@ -33,7 +33,7 @@ export const NIGHTLIFE_NEIGHBORHOODS: NightlifeNeighborhood[] = [
     borough: "Manhattan",
     vibe: "Cheap drinks, no dress code, zero attitude. The most consistently fun neighborhood in the city.",
     bestFor: ["Dive bars", "Cheap drinks", "All crowds"],
-    peakHour: 22,
+    peakHour: 23,
     lines: ["L", "4", "5", "6"],
     bounds: [40.723, 40.733, -73.995, -73.975],
   },
@@ -42,7 +42,7 @@ export const NIGHTLIFE_NEIGHBORHOODS: NightlifeNeighborhood[] = [
     borough: "Manhattan",
     vibe: "Craft cocktails and wine bars. More cash, more chill, better conversation.",
     bestFor: ["Cocktail bars", "Wine bars", "Date night"],
-    peakHour: 21,
+    peakHour: 22,
     lines: ["1", "A", "C", "E", "L"],
     bounds: [40.731, 40.741, -74.010, -73.999],
   },
@@ -51,7 +51,7 @@ export const NIGHTLIFE_NEIGHBORHOODS: NightlifeNeighborhood[] = [
     borough: "Manhattan",
     vibe: "Theater crowd meets neighborhood regulars. Tons of options, never feels overwhelming.",
     bestFor: ["Bar hopping", "After theater", "Mixed crowds"],
-    peakHour: 22,
+    peakHour: 23,
     lines: ["1", "2", "3", "A", "C", "E"],
     bounds: [40.755, 40.768, -74.003, -73.985],
   },
@@ -60,7 +60,7 @@ export const NIGHTLIFE_NEIGHBORHOODS: NightlifeNeighborhood[] = [
     borough: "Manhattan",
     vibe: "Loud bars and beer pong. College energy, rowdy on weekends, dead on weeknights.",
     bestFor: ["Weekend nights", "Groups", "Beer bars"],
-    peakHour: 23,
+    peakHour: 0,
     lines: ["4", "5", "6"],
     bounds: [40.744, 40.754, -73.985, -73.970],
   },
@@ -69,7 +69,7 @@ export const NIGHTLIFE_NEIGHBORHOODS: NightlifeNeighborhood[] = [
     borough: "Brooklyn",
     vibe: "Arts crowd, warehouse parties, cheap beer. NYC's most creative and least pretentious nightlife.",
     bestFor: ["Warehouse parties", "Art events", "Late nights"],
-    peakHour: 0,
+    peakHour: 1,
     lines: ["L", "J", "M", "Z"],
     bounds: [40.693, 40.710, -73.932, -73.905],
   },
@@ -78,7 +78,7 @@ export const NIGHTLIFE_NEIGHBORHOODS: NightlifeNeighborhood[] = [
     borough: "Queens",
     vibe: "Neighborhood bars with a local feel. Half the price of Manhattan, twice as chill.",
     bestFor: ["Local bars", "Greek food", "Chill nights"],
-    peakHour: 21,
+    peakHour: 22,
     lines: ["N", "W"],
     bounds: [40.765, 40.780, -73.940, -73.915],
   },
@@ -87,7 +87,7 @@ export const NIGHTLIFE_NEIGHBORHOODS: NightlifeNeighborhood[] = [
     borough: "Brooklyn",
     vibe: "Caribbean vibes and Brooklyn underground energy. Gets going late, stays going later.",
     bestFor: ["Late nights", "Caribbean bars", "Local scene"],
-    peakHour: 23,
+    peakHour: 0,
     lines: ["2", "3", "4", "5"],
     bounds: [40.660, 40.675, -73.960, -73.940],
   },
@@ -96,7 +96,7 @@ export const NIGHTLIFE_NEIGHBORHOODS: NightlifeNeighborhood[] = [
     borough: "Manhattan",
     vibe: "Jazz bars, soul food spots, and a vibe that does not exist anywhere else in the city.",
     bestFor: ["Jazz", "Soul food", "Authentic NYC"],
-    peakHour: 22,
+    peakHour: 23,
     lines: ["2", "3", "A", "B", "C", "D"],
     bounds: [40.808, 40.820, -73.960, -73.935],
   },
@@ -105,7 +105,7 @@ export const NIGHTLIFE_NEIGHBORHOODS: NightlifeNeighborhood[] = [
     borough: "Manhattan",
     vibe: "High-end clubs and model bars. Bring your card and your patience for the door.",
     bestFor: ["Clubs", "Bottle service", "High-end bars"],
-    peakHour: 23,
+    peakHour: 1,
     lines: ["A", "C", "E", "L", "1", "2", "3"],
     bounds: [40.739, 40.746, -74.012, -73.999],
   },
@@ -122,11 +122,15 @@ export const NIGHTLIFE_NEIGHBORHOODS: NightlifeNeighborhood[] = [
 
 // Simple time-of-day label for when a neighborhood peaks
 export function peakLabel(peakHour: number): string {
-  if (peakHour >= 0 && peakHour < 6) return "peaks after midnight";
-  if (peakHour < 20) return "starts early";
-  if (peakHour < 22) return "peaks around 9-10pm";
-  if (peakHour < 23) return "peaks around 10-11pm";
-  return "peaks around 11pm+";
+  if (peakHour === 3 || peakHour === 4 || peakHour === 5) return "peaks 3am+";
+  if (peakHour === 2) return "peaks around 2am";
+  if (peakHour === 1) return "peaks around 1am";
+  if (peakHour === 0) return "peaks around midnight";
+  if (peakHour <= 19) return "starts around 7-8pm";
+  if (peakHour === 20) return "peaks around 8-9pm";
+  if (peakHour === 21) return "peaks around 9-10pm";
+  if (peakHour === 22) return "peaks around 10-11pm";
+  return "peaks around 11pm-midnight";
 }
 
 // Whether a neighborhood is "in season" for the current time
