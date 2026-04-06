@@ -50,7 +50,9 @@ export function BusyDashboard() {
 
   const fetchData = useCallback(async () => {
     try {
-      const res = await fetch("/api/busy?city=nyc");
+      const res = await fetch("/api/busy?city=nyc", {
+        signal: AbortSignal.timeout(12000),
+      });
       if (!res.ok) throw new Error("fetch failed");
       const json: BusyResponse = await res.json();
       setData((prev) => {
@@ -209,9 +211,9 @@ export function BusyDashboard() {
         {/* ── Extra signals ── */}
         <section className="space-y-3">
           <SectionLabel>More signals</SectionLabel>
-          <div className="grid grid-cols-2 gap-3">
+          <div className="space-y-3">
             <CitiBikeCard citibike={data.signals.citibike} textClass={verdict.text} />
-            <div className="grid grid-cols-2 gap-3 col-span-2">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
               <StreetCard dsny={data.signals.dsny} textClass={verdict.text} />
               <SignalCard signal={data.signals.noise} textClass={verdict.text} />
               <SignalCard signal={data.signals.timeOfDay} textClass={verdict.text} />

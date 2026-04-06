@@ -59,10 +59,10 @@ async function recordAndGetHistory(score: number): Promise<{
 
     const values = await Promise.all(allKeys.map((k) => kvGet<number>(k)));
     const historical = values.filter((v): v is number => v !== null);
-    if (historical.length === 0) return {};
 
-    const below = historical.filter((s) => s < score).length;
-    const percentile = Math.round((below / historical.length) * 100);
+    const percentile = historical.length > 0
+      ? Math.round((historical.filter((s) => s < score).length / historical.length) * 100)
+      : undefined;
 
     // Last 7 days (oldest first) — allKeys[0] = yesterday, allKeys[6] = 7 days ago
     const last7 = allKeys.slice(0, 7).map((_, i) => values[i]).filter((v): v is number => v !== null);

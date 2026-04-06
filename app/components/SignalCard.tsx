@@ -8,6 +8,11 @@ const ICONS: Record<string, string> = {
   "Time of Day": "🕐",
 };
 
+const SHORT_LABELS: Record<string, string> = {
+  "311 Noise": "Noise",
+  "Time of Day": "Time",
+};
+
 interface SignalCardProps {
   signal: SignalResult;
   textClass: string;
@@ -21,7 +26,7 @@ export function SignalCard({ signal, textClass }: SignalCardProps) {
     <div className="bg-white/5 border border-white/10 rounded-2xl p-4 flex flex-col gap-2">
       <div className="flex items-center justify-between">
         <span className="text-sm font-medium text-white/60">
-          {icon} {signal.label}
+          {icon} {SHORT_LABELS[signal.label] ?? signal.label}
         </span>
         <span className={`text-xs font-bold ${signal.error ? "text-white/30" : textClass}`}>
           {pips}/10

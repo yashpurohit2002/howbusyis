@@ -364,10 +364,7 @@ export async function getEventsScore(
       };
     });
 
-    // Merge with NYC Open Data special events (street fairs, parades, etc.)
-    const openDataEvents = await getNycOpenDataEvents(city);
-
-    const events = [...tmEvents, ...openDataEvents]
+    const events = tmEvents
       .sort((a, b) => a.startTime.localeCompare(b.startTime))
       .slice(0, 25);
 
@@ -387,72 +384,10 @@ export async function getEventsScore(
       score,
       events,
       byBorough,
-      totalToday: rawEvents.length + openDataEvents.length,
+      totalToday: rawEvents.length,
     };
   } catch {
     return { ...fallback, detail: "Ticketmaster went quiet", error: true };
-  }
-}
-
-// ---- NYC Open Data Special Event Permits ----
-// Free, no key -- covers street fairs, parades, block parties, film shoots, etc.
-async function getNycOpenDataEvents(city: CityConfig): Promise<EventItem[]> {
-  try {
-    const now = new Date();
-    const today = now.toISOString().split("T")[0];
-
-    const params = new URLSearchParams({
-      $where: `start_date_time >= '${today}T00:00:00' AND start_date_time <= '${today}T23:59:59'`,
-      $limit: "30",
-      $select: "event_name,start_date_time,event_location,event_borough,event_type",
-    });
-
-    const res = await fetch(
-      `https://data.cityofnewyork.us/resource/tvpp-9vvx.json?${params}`,
-      { next: { revalidate: 0 }, signal: AbortSignal.timeout(6000) }
-    );
-    if (!res.ok) return [];
-
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const data: any[] = await res.json();
-
-    const NYC_PARKS_YOUTH = /\b(little league|youth|junior|u\d{1,2}|under \d+|\d+ and under|kids|children|peewee|pee.?wee|age \d|u-\d|baseball.*older|monroe cohen|permit)\b/i;
-
-    return data
-      .filter((e) => e.event_name && e.start_date_time && !NYC_PARKS_YOUTH.test(e.event_name))
-      .map((e, i) => {
-        const boroughRaw: string = e.event_borough ?? "Manhattan";
-        const borough =
-          boroughRaw === "MANHATTAN" ? "Manhattan" :
-          boroughRaw === "BROOKLYN" ? "Brooklyn" :
-          boroughRaw === "QUEENS" ? "Queens" :
-          boroughRaw === "BRONX" ? "Bronx" :
-          boroughRaw === "STATEN ISLAND" ? "Staten Island" :
-          "Manhattan";
-
-        const neighborhood = borough.toLowerCase();
-        const nhoodData = NEIGHBORHOOD_LINES[neighborhood] ?? NEIGHBORHOOD_LINES["midtown"];
-
-        return {
-          id: `nyc-${i}-${e.start_date_time}`,
-          name: e.event_name,
-          venue: e.event_location ?? borough,
-          neighborhood,
-          borough,
-          startTime: new Date(e.start_date_time).toLocaleTimeString("en-US", {
-            hour: "numeric",
-            minute: "2-digit",
-            hour12: true,
-            timeZone: city.timezoneTZ,
-          }),
-          crowdSize: "Medium" as const,
-          lines: nhoodData?.lines ?? [],
-          address: e.event_location ?? undefined,
-          source: "nyc-open-data" as const,
-        };
-      });
-  } catch {
-    return [];
   }
 }
 
