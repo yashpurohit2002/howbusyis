@@ -97,12 +97,14 @@ export async function getMtaScore(_city: CityConfig): Promise<MtaSignalResult> {
     const affected = parseAffectedRoutes(buffer);
     const lineStatuses = makeLineStatuses(affected);
     const chaosLevel = mtaChaosLevel(affected.length);
-    // Normal delays (1-3 lines) barely affect the score -- that's just NYC.
-    // Elevated (4-6) adds moderate pressure. Bad (7+) hits hard.
+    // First 4 delays are baseline NYC noise — ignore them entirely.
+    // Only delays above that move the needle.
+    const significant = Math.max(0, affected.length - 4);
     const score =
-      chaosLevel === "normal"   ? Math.min(3, affected.length) :
-      chaosLevel === "elevated" ? 3 + Math.round(((affected.length - 3) / 3) * 3) :
-      /* bad */                   6 + Math.min(4, affected.length - 6);
+      significant === 0 ? 0 :
+      significant <= 4  ? Math.round((significant / 4) * 3) :
+      significant <= 9  ? 3 + Math.round(((significant - 4) / 5) * 4) :
+      /* 10+ significant */ 7 + Math.min(3, significant - 9);
 
     return {
       label: "MTA",
@@ -373,7 +375,9 @@ export async function getEventsScore(
       byBorough[ev.borough] = (byBorough[ev.borough] ?? 0) + 1;
     }
 
-    const score = Math.min(10, events.length);
+    // Normalize against NYC baseline (~15 events is a normal evening).
+    // 0 events = 0, 15 events = 5, 30+ events = 10.
+    const score = Math.min(10, Math.round(events.length / 3));
 
     return {
       label: "Events",
@@ -578,24 +582,35 @@ export async function getDsnyScore(city: CityConfig): Promise<DsnySignalResult> 
 export function getTimeOfDayScore(tz: string): SignalResult {
   const now = new Date(new Date().toLocaleString("en-US", { timeZone: tz }));
   const hour = now.getHours();
-  const day = now.getDay();
+  const day = now.getDay(); // 0=Sun, 5=Fri, 6=Sat
 
-  let score = 0;
+  // Base of 3 (neutral midday weekday). This is the anchor.
+  let score = 3;
   const reasons: string[] = [];
 
-  if (day >= 1 && day <= 5 && ((hour >= 8 && hour <= 10) || (hour >= 17 && hour <= 19))) {
-    score += 2; reasons.push("rush hour");
-  }
-  if (day === 5 && hour >= 19) { score += 2; reasons.push("Friday night"); }
-  if (day === 6 && hour >= 20) { score += 1; reasons.push("Saturday night"); }
-  if (day === 0 && hour >= 7 && hour < 11) { score -= 2; reasons.push("Sunday morning"); }
-  if (hour >= 2 && hour < 6) { score -= 2; reasons.push("middle of the night"); }
+  const isWeekday = day >= 1 && day <= 5;
+  const isRushHour = isWeekday && ((hour >= 8 && hour <= 10) || (hour >= 17 && hour <= 19));
+  const isFridayNight = day === 5 && hour >= 20;
+  const isSaturdayNight = day === 6 && hour >= 21;
+  const isWeekendAfternoon = (day === 6 || day === 0) && hour >= 12 && hour <= 18;
+  const isSundayMorning = day === 0 && hour >= 7 && hour < 11;
+  const isDeepNight = hour >= 2 && hour < 6;
+  const isEarlyMorning = hour >= 6 && hour < 8;
+
+  if (isFridayNight)        { score += 5; reasons.push("Friday night"); }
+  else if (isSaturdayNight) { score += 4; reasons.push("Saturday night"); }
+  else if (isRushHour)      { score += 3; reasons.push("Rush hour"); }
+  else if (isWeekendAfternoon) { score += 1; reasons.push("Weekend afternoon"); }
+
+  if (isDeepNight)          { score -= 3; reasons.push("Middle of the night"); }
+  else if (isSundayMorning) { score -= 2; reasons.push("Sunday morning"); }
+  else if (isEarlyMorning)  { score -= 1; reasons.push("Early morning"); }
 
   score = Math.max(0, Math.min(10, score));
   const detail =
     reasons.length === 0
       ? "Normal hours"
-      : reasons.map((r) => r.charAt(0).toUpperCase() + r.slice(1)).join(", ");
+      : reasons.join(", ");
 
   return { label: "Time of Day", detail, score };
 }
@@ -720,8 +735,11 @@ export function getNightlifeScore(
 }
 
 // ---- Total score ----
-// Weights: MTA 25, Weather 20, Events 15, Noise 10, CitiBike 10, DSNY 5, TimeOfDay 15
-const WEIGHTS = [25, 20, 15, 10, 10, 5, 15];
+// Weights: MTA 15, Weather 15, Events 20, Noise 10, CitiBike 5, DSNY 5, TimeOfDay 30
+// TimeOfDay is the most reliable, unambiguous signal of actual street activity.
+// Events normalized against baseline so exceptional days push the score up.
+// MTA and CitiBike reduced — baseline noise subtracted at source now.
+const WEIGHTS = [15, 15, 20, 10, 5, 5, 30];
 
 export function computeTotal(scores: number[]): number {
   const total = scores.reduce((sum, s, i) => sum + s * (WEIGHTS[i] ?? 10), 0);

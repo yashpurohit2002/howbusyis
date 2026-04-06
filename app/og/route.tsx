@@ -4,18 +4,37 @@ import { getVerdict, BusyResponse } from "@/app/lib/types";
 export const runtime = "nodejs";
 
 const COLOR_MAP: Record<string, string> = {
+  "text-slate-400":   "#94a3b8",
   "text-blue-400":    "#60a5fa",
+  "text-teal-400":    "#2dd4bf",
   "text-emerald-400": "#34d399",
+  "text-lime-400":    "#a3e635",
   "text-yellow-400":  "#facc15",
+  "text-amber-400":   "#fbbf24",
   "text-orange-400":  "#fb923c",
   "text-red-400":     "#f87171",
 };
 const BG_MAP: Record<string, [string, string]> = {
-  "from-blue-950 to-blue-900":       ["#0f172a", "#1e3a5f"],
+  "from-slate-950 to-gray-900":    ["#020617", "#111827"],
+  "from-slate-950 to-blue-950":    ["#020617", "#172554"],
+  "from-blue-950 to-blue-900":     ["#172554", "#1e3a8a"],
+  "from-blue-950 to-indigo-900":   ["#172554", "#312e81"],
+  "from-indigo-950 to-teal-950":   ["#1e1b4b", "#042f2e"],
+  "from-teal-950 to-emerald-950":  ["#042f2e", "#022c22"],
   "from-emerald-950 to-emerald-900": ["#022c22", "#064e3b"],
-  "from-yellow-950 to-yellow-900":   ["#1c1002", "#422006"],
-  "from-orange-950 to-orange-900":   ["#1a0a02", "#431407"],
-  "from-red-950 to-red-900":         ["#1a0202", "#450a0a"],
+  "from-emerald-950 to-green-900": ["#022c22", "#14532d"],
+  "from-green-950 to-lime-950":    ["#052e16", "#1a2e05"],
+  "from-lime-950 to-yellow-950":   ["#1a2e05", "#1c1702"],
+  "from-yellow-950 to-yellow-900": ["#1c1702", "#422006"],
+  "from-yellow-950 to-amber-900":  ["#1c1702", "#431407"],
+  "from-amber-950 to-amber-900":   ["#1c0a02", "#431407"],
+  "from-amber-950 to-orange-900":  ["#1c0a02", "#431407"],
+  "from-orange-950 to-orange-900": ["#1a0a02", "#431407"],
+  "from-orange-950 to-rose-950":   ["#1a0a02", "#4c0519"],
+  "from-rose-950 to-red-900":      ["#4c0519", "#450a0a"],
+  "from-red-950 to-red-900":       ["#450a0a", "#7f1d1d"],
+  "from-red-950 to-rose-900":      ["#450a0a", "#881337"],
+  "from-rose-950 to-red-950":      ["#4c0519", "#450a0a"],
 };
 
 async function getDataFast(origin: string): Promise<BusyResponse | null> {

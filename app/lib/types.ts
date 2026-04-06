@@ -133,26 +133,29 @@ export interface VerdictLevel {
 }
 
 // 20 bands, 5 points each. Index 0 = 0-4, index 19 = 95-100.
+// Backgrounds shift across a continuous spectrum: slate -> blue -> teal -> green -> yellow -> amber -> orange -> rose -> red
 export const VERDICTS: VerdictLevel[] = [
-  // ── Blue: 0-19 (dead quiet) ──────────────────────────────────────────────
+  // 0-4
   {
     label: "Empty.",
     subtitle: "Even the pigeons stayed home.",
-    color: "#3b82f6",
-    bg: "from-blue-950 to-blue-900",
-    text: "text-blue-400",
-    bar: "bg-blue-400",
-    border: "border-blue-800",
+    color: "#64748b",
+    bg: "from-slate-950 to-gray-900",
+    text: "text-slate-400",
+    bar: "bg-slate-400",
+    border: "border-slate-800",
   },
+  // 5-9
   {
     label: "Hollow.",
     subtitle: "You could hear Canal Street echo.",
     color: "#3b82f6",
-    bg: "from-blue-950 to-blue-900",
+    bg: "from-slate-950 to-blue-950",
     text: "text-blue-400",
     bar: "bg-blue-400",
-    border: "border-blue-800",
+    border: "border-blue-900",
   },
+  // 10-14
   {
     label: "Quiet.",
     subtitle: "NYC is catching its breath.",
@@ -162,34 +165,37 @@ export const VERDICTS: VerdictLevel[] = [
     bar: "bg-blue-400",
     border: "border-blue-800",
   },
+  // 15-19
   {
     label: "Slow.",
     subtitle: "A rare window. Take it.",
     color: "#3b82f6",
-    bg: "from-blue-950 to-blue-900",
+    bg: "from-blue-950 to-indigo-900",
     text: "text-blue-400",
     bar: "bg-blue-400",
     border: "border-blue-800",
   },
-  // ── Emerald: 20-39 (chill) ───────────────────────────────────────────────
+  // 20-24
   {
     label: "Relaxed.",
     subtitle: "The city is being polite. Suspicious.",
-    color: "#22c55e",
-    bg: "from-emerald-950 to-emerald-900",
-    text: "text-emerald-400",
-    bar: "bg-emerald-400",
-    border: "border-emerald-800",
+    color: "#2dd4bf",
+    bg: "from-indigo-950 to-teal-950",
+    text: "text-teal-400",
+    bar: "bg-teal-400",
+    border: "border-teal-800",
   },
+  // 25-29
   {
     label: "Mellow.",
     subtitle: "Good day to actually move around.",
     color: "#22c55e",
-    bg: "from-emerald-950 to-emerald-900",
+    bg: "from-teal-950 to-emerald-950",
     text: "text-emerald-400",
     bar: "bg-emerald-400",
     border: "border-emerald-800",
   },
+  // 30-34
   {
     label: "Chill.",
     subtitle: "NYC is being reasonable. Enjoy it.",
@@ -199,34 +205,37 @@ export const VERDICTS: VerdictLevel[] = [
     bar: "bg-emerald-400",
     border: "border-emerald-800",
   },
+  // 35-39
   {
     label: "Steady.",
     subtitle: "Normal. For New York, that's saying something.",
     color: "#22c55e",
-    bg: "from-emerald-950 to-emerald-900",
+    bg: "from-emerald-950 to-green-900",
     text: "text-emerald-400",
     bar: "bg-emerald-400",
     border: "border-emerald-800",
   },
-  // ── Yellow: 40-59 (building energy) ─────────────────────────────────────
+  // 40-44
   {
     label: "Alive.",
     subtitle: "Things are starting to stir.",
-    color: "#eab308",
-    bg: "from-yellow-950 to-yellow-900",
-    text: "text-yellow-400",
-    bar: "bg-yellow-400",
-    border: "border-yellow-800",
+    color: "#a3e635",
+    bg: "from-green-950 to-lime-950",
+    text: "text-lime-400",
+    bar: "bg-lime-400",
+    border: "border-lime-800",
   },
+  // 45-49
   {
     label: "Movin'.",
     subtitle: "The city's finding its rhythm.",
     color: "#eab308",
-    bg: "from-yellow-950 to-yellow-900",
+    bg: "from-lime-950 to-yellow-950",
     text: "text-yellow-400",
     bar: "bg-yellow-400",
     border: "border-yellow-800",
   },
+  // 50-54
   {
     label: "Buzzin'.",
     subtitle: "Mid-level NYC energy. Everyone's doing something.",
@@ -236,34 +245,37 @@ export const VERDICTS: VerdictLevel[] = [
     bar: "bg-yellow-400",
     border: "border-yellow-800",
   },
+  // 55-59
   {
     label: "Poppin'.",
     subtitle: "You can feel it picking up.",
-    color: "#eab308",
-    bg: "from-yellow-950 to-yellow-900",
-    text: "text-yellow-400",
-    bar: "bg-yellow-400",
-    border: "border-yellow-800",
+    color: "#f59e0b",
+    bg: "from-yellow-950 to-amber-900",
+    text: "text-amber-400",
+    bar: "bg-amber-400",
+    border: "border-amber-800",
   },
-  // ── Orange: 60-79 (hectic) ───────────────────────────────────────────────
+  // 60-64
   {
     label: "Busy.",
     subtitle: "Classic New York. No complaints.",
-    color: "#f97316",
-    bg: "from-orange-950 to-orange-900",
-    text: "text-orange-400",
-    bar: "bg-orange-400",
-    border: "border-orange-800",
+    color: "#f59e0b",
+    bg: "from-amber-950 to-amber-900",
+    text: "text-amber-400",
+    bar: "bg-amber-400",
+    border: "border-amber-800",
   },
+  // 65-69
   {
     label: "Packed.",
     subtitle: "Everyone had the same idea.",
     color: "#f97316",
-    bg: "from-orange-950 to-orange-900",
+    bg: "from-amber-950 to-orange-900",
     text: "text-orange-400",
     bar: "bg-orange-400",
     border: "border-orange-800",
   },
+  // 70-74
   {
     label: "Hectic.",
     subtitle: "This is what you signed up for.",
@@ -273,25 +285,27 @@ export const VERDICTS: VerdictLevel[] = [
     bar: "bg-orange-400",
     border: "border-orange-800",
   },
+  // 75-79
   {
     label: "Wild.",
     subtitle: "Hold tight.",
     color: "#f97316",
-    bg: "from-orange-950 to-orange-900",
+    bg: "from-orange-950 to-rose-950",
     text: "text-orange-400",
     bar: "bg-orange-400",
     border: "border-orange-800",
   },
-  // ── Red: 80-100 (chaos) ──────────────────────────────────────────────────
+  // 80-84
   {
     label: "Slammed.",
     subtitle: "The city is going all out tonight.",
     color: "#ef4444",
-    bg: "from-red-950 to-red-900",
+    bg: "from-rose-950 to-red-900",
     text: "text-red-400",
     bar: "bg-red-400",
     border: "border-red-800",
   },
+  // 85-89
   {
     label: "Unhinged.",
     subtitle: "NYC at full volume.",
@@ -301,20 +315,22 @@ export const VERDICTS: VerdictLevel[] = [
     bar: "bg-red-400",
     border: "border-red-800",
   },
+  // 90-94
   {
     label: "Pure chaos.",
     subtitle: "Best stories start like this.",
     color: "#ef4444",
-    bg: "from-red-950 to-red-900",
+    bg: "from-red-950 to-rose-900",
     text: "text-red-400",
     bar: "bg-red-400",
     border: "border-red-800",
   },
+  // 95-100
   {
     label: "Unreal.",
     subtitle: "The city has completely lost the plot. Beautifully.",
     color: "#ef4444",
-    bg: "from-red-950 to-red-900",
+    bg: "from-rose-950 to-red-950",
     text: "text-red-400",
     bar: "bg-red-400",
     border: "border-red-800",
