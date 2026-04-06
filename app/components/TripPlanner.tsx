@@ -198,6 +198,8 @@ interface GeoResult { lat: number; lon: number; displayName: string }
 interface RouteResult {
   fromDisplay: string;
   toDisplay: string;
+  fromGeo: GeoResult;
+  toGeo: GeoResult;
   walkable: boolean;
   totalDistM: number;
   steps: StepInfo[];
@@ -272,6 +274,8 @@ export function TripPlanner({ mta, onHighlight }: Props) {
         setResult({
           fromDisplay: shortName(fromGeo.displayName),
           toDisplay: shortName(toGeo.displayName),
+          fromGeo,
+          toGeo,
           walkable: true,
           totalDistM,
           steps,
@@ -426,6 +430,8 @@ export function TripPlanner({ mta, onHighlight }: Props) {
       setResult({
         fromDisplay: shortName(fromGeo.displayName),
         toDisplay: shortName(toGeo.displayName),
+        fromGeo,
+        toGeo,
         walkable: false,
         totalDistM,
         steps,
@@ -530,7 +536,7 @@ export function TripPlanner({ mta, onHighlight }: Props) {
               Est. trip: <span className="text-white/70 font-medium">≈{result.totalEstMin} min</span>
             </span>
             <a
-              href={mapsUrl(from, to, fromCachedGeo, toCachedGeo)}
+              href={mapsUrl(from, to, result.fromGeo, result.toGeo)}
               target="_blank"
               rel="noopener noreferrer"
               className="flex items-center gap-1.5 text-xs text-white/30 hover:text-white/60 transition-colors"
