@@ -66,7 +66,7 @@ export function computeGoOutVerdict(data: BusyResponse): GoOutVerdict {
     return {
       verdict: "YES",
       mood: "cautious",
-      reason: "Rush hour with bad subway service — a rough combo. Build in 20+ extra minutes or consider walking part of it.",
+      reason: "Rush hour with bad subway service. A rough combo. Build in 20+ extra minutes or consider walking part of it.",
       color: "text-yellow-400",
     };
   }
