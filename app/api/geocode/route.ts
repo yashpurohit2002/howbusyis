@@ -56,17 +56,39 @@ export async function GET(request: Request) {
       );
     }
 
-    // Build a clean display name from address details
     type NominatimItem = {
-      lat: string; lon: string; display_name?: string;
-      address?: { house_number?: string; road?: string; neighbourhood?: string; suburb?: string; city_district?: string; borough?: string };
+      lat: string; lon: string; display_name?: string; name?: string;
+      address?: {
+        house_number?: string; road?: string;
+        neighbourhood?: string; suburb?: string;
+        city_district?: string; borough?: string;
+        amenity?: string; shop?: string; tourism?: string; leisure?: string;
+      };
     };
+
+    const cleanArea = (a: NominatimItem["address"]): string => {
+      if (!a) return "";
+      const candidates = [a.neighbourhood, a.suburb, a.city_district, a.borough];
+      // Filter out useless Nominatim administrative labels
+      const good = candidates.find(
+        (c) => c && !/community board|borough of manhattan|borough of brooklyn|borough of queens|borough of bronx|new york city/i.test(c)
+      );
+      return good ?? "";
+    };
+
     const cleanName = (item: NominatimItem): string => {
       const a = item.address;
-      if (!a) return item.display_name ?? q;
-      const street = [a.house_number, a.road].filter(Boolean).join(" ");
-      const area = a.neighbourhood ?? a.suburb ?? a.city_district ?? a.borough ?? "";
-      return [street, area].filter(Boolean).join(", ") || (item.display_name ?? q);
+      // For named places (bars, restaurants, landmarks), lead with the name
+      const placeName = item.name ?? a?.amenity ?? a?.shop ?? a?.tourism ?? a?.leisure ?? "";
+      const street = [a?.house_number, a?.road].filter(Boolean).join(" ");
+      const area = cleanArea(a);
+
+      if (placeName && street) return `${placeName} — ${street}${area ? `, ${area}` : ""}`;
+      if (placeName && area)  return `${placeName}, ${area}`;
+      if (placeName)          return placeName;
+      if (street && area)     return `${street}, ${area}`;
+      if (street)             return street;
+      return item.display_name?.split(",").slice(0, 2).join(",").trim() ?? q;
     };
 
     if (suggest) {
