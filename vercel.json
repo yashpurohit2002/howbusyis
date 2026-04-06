@@ -1,9 +1,5 @@
 {
   "framework": "nextjs",
   "buildCommand": "npm run build",
-  "outputDirectory": ".next",
-  "env": {
-    "OPENWEATHER_API_KEY": "@openweather_api_key",
-    "TICKETMASTER_API_KEY": "@ticketmaster_api_key"
-  }
+  "outputDirectory": ".next"
 }
