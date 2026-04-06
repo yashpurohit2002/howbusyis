@@ -34,12 +34,25 @@ function SectionLabel({ children }: { children: React.ReactNode }) {
   );
 }
 
+function useOddsOnLine(data: BusyResponse | null): string | null {
+  if (!data) return null;
+  const delays = data.signals.mta.delayedLines?.length ?? 0;
+  if (delays >= 5) return `Odds the MTA recovers before 8pm?`;
+  const nextHours = data.signals.weather.hourly.slice(0, 3);
+  const maxRain = Math.max(0, ...nextHours.map((h) => h.pop));
+  if (maxRain >= 0.3) return `Call it: will it actually rain today?`;
+  if (data.score > 80) return `Think NYC stays this chaotic all night?`;
+  if (data.score < 25) return `Rare quiet day. How long does it last?`;
+  return null;
+}
+
 export function BusyDashboard() {
   const [data, setData] = useState<BusyResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
   const [goOutMode, setGoOutMode] = useState(false);
   const [highlightLines, setHighlightLines] = useState<string[]>([]);
+  const [scoreClicked, setScoreClicked] = useState(false);
   const prevScoreRef = useRef<number | null>(null);
 
   // Seed trend from localStorage so it shows on first load
@@ -101,6 +114,12 @@ export function BusyDashboard() {
 
   const verdict = getVerdict(data.score);
   const goOutVerdict = computeGoOutVerdict(data);
+  const oddsOnLine = useOddsOnLine(data);
+
+  const handleScoreClick = () => {
+    setScoreClicked(true);
+    setTimeout(() => setScoreClicked(false), 4000);
+  };
 
   const scoreDelta = prevScoreRef.current !== null ? data.score - prevScoreRef.current : 0;
   const trendIcon = scoreDelta >= 5 ? "↑" : scoreDelta <= -5 ? "↓" : null;
@@ -124,9 +143,22 @@ export function BusyDashboard() {
               {data.label}
             </h1>
             <p className="text-white/60 text-xl mt-2">{data.subtitle}</p>
+            {oddsOnLine && (
+              <p className="text-xs text-white/30 mt-1">
+                {oddsOnLine}{" "}
+                <a href="https://oddson.app" target="_blank" rel="noopener noreferrer" className="underline underline-offset-2 hover:text-white/50 transition-colors">
+                  oddson.app
+                </a>
+              </p>
+            )}
           </div>
           <div className="flex items-end justify-center gap-2">
-            <span className="text-7xl font-black text-white tabular-nums leading-none">{data.score}</span>
+            <span
+              className="text-7xl font-black text-white tabular-nums leading-none cursor-default select-none"
+              onClick={handleScoreClick}
+            >
+              {data.score}
+            </span>
             <div className="flex flex-col items-start mb-2 gap-0.5">
               <span className="text-white/30 text-2xl">/100</span>
               {trendIcon && (
@@ -136,6 +168,14 @@ export function BusyDashboard() {
               )}
             </div>
           </div>
+          {scoreClicked && (
+            <p className="text-xs text-white/30 animate-pulse">
+              Think you can predict tomorrow&apos;s score?{" "}
+              <a href="https://oddson.app" target="_blank" rel="noopener noreferrer" className="underline underline-offset-2 hover:text-white/50 transition-colors">
+                oddson.app
+              </a>
+            </p>
+          )}
           <div className="flex justify-center">
             <ScoreBar score={data.score} barClass={verdict.bar} />
           </div>
@@ -251,6 +291,15 @@ export function BusyDashboard() {
               className="hover:text-white/50 underline underline-offset-2 transition-colors"
             >
               Yash Purohit
+            </a>
+            {" "}&middot; Making predictions more fun at{" "}
+            <a
+              href="https://oddson.app"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="hover:text-white/50 underline underline-offset-2 transition-colors"
+            >
+              oddson.app
             </a>
           </p>
           <div className="flex items-center justify-center gap-4 pt-1">
