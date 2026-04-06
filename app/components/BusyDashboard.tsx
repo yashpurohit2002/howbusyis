@@ -15,6 +15,7 @@ import { StreetCard } from "./StreetCard";
 import { GoOutMode } from "./GoOutMode";
 import { HistoricalContext } from "./HistoricalContext";
 import { SignalCard } from "./SignalCard";
+import { NightlifeSection } from "./NightlifeSection";
 
 const REFRESH_MS = 5 * 60 * 1000;
 
@@ -182,6 +183,19 @@ export function BusyDashboard() {
               <SignalCard signal={data.signals.timeOfDay} textClass={verdict.text} />
             </div>
           </div>
+        </section>
+
+        <div className="border-t border-white/5" />
+
+        {/* ── Nightlife ── */}
+        <section className="space-y-3">
+          <div className="flex items-center justify-between">
+            <SectionLabel>Where to go tonight</SectionLabel>
+            <span className={`text-xs font-semibold ${verdict.text}`}>
+              {data.signals.nightlife.topPick}
+            </span>
+          </div>
+          <NightlifeSection nightlife={data.signals.nightlife} textClass={verdict.text} />
         </section>
 
         {/* ── Share ── */}

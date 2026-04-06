@@ -80,6 +80,24 @@ export interface DsnySignalResult extends SignalResult {
   missedFills: number;
 }
 
+// ---- Nightlife ----
+export interface NightlifeSpot {
+  name: string;
+  borough: string;
+  vibe: string;
+  bestFor: string[];
+  lines: string[];
+  peakLabel: string;
+  activityScore: number;   // 0-100, combined signal
+  noiseCount: number;      // raw 311 noise complaints nearby (last 6h)
+  isHot: boolean;          // currently in peak window
+}
+
+export interface NightlifeSignalResult extends SignalResult {
+  spots: NightlifeSpot[];
+  topPick: string;   // name of #1 neighborhood
+}
+
 // ---- Unified response ----
 export interface BusyResponse {
   score: number;
@@ -94,6 +112,7 @@ export interface BusyResponse {
     citibike: CitiBikeSignalResult;
     dsny: DsnySignalResult;
     timeOfDay: SignalResult;
+    nightlife: NightlifeSignalResult;
   };
   historicalPercentile?: number;
   lastUpdated: string;

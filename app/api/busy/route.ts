@@ -8,6 +8,7 @@ import {
   getCitiBikeScore,
   getDsnyScore,
   getTimeOfDayScore,
+  getNightlifeScore,
   computeTotal,
 } from "@/app/lib/scoring";
 import { getVerdict, BusyResponse } from "@/app/lib/types";
@@ -87,13 +88,14 @@ export async function GET(request: Request) {
   }
 
   // ── Cache miss: fan out to all APIs ──
-  const [mta, weather, events, noise, citibike, dsny] = await Promise.all([
+  const [mta, weather, events, noise, citibike, dsny, nightlife] = await Promise.all([
     getMtaScore(city),
     getWeatherScore(city),
     getEventsScore(city),
     getNoiseScore(city),
     getCitiBikeScore(),
     getDsnyScore(city),
+    getNightlifeScore(city),
   ]);
 
   const timeOfDay = getTimeOfDayScore(city.timezoneTZ);
@@ -116,7 +118,7 @@ export async function GET(request: Request) {
     label: verdict.label,
     subtitle: verdict.subtitle,
     color: verdict.color,
-    signals: { mta, weather, events, noise, citibike, dsny, timeOfDay },
+    signals: { mta, weather, events, noise, citibike, dsny, timeOfDay, nightlife },
     historicalPercentile,
     lastUpdated: new Date().toISOString(),
   };

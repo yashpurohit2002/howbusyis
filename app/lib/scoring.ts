@@ -5,10 +5,16 @@ import {
   EventsSignalResult,
   CitiBikeSignalResult,
   DsnySignalResult,
+  NightlifeSignalResult,
   LineStatusEntry,
   HourlySnapshot,
   EventItem,
 } from "./types";
+import {
+  NIGHTLIFE_NEIGHBORHOODS,
+  peakLabel,
+  isActive,
+} from "./nightlife-data";
 import { CityConfig } from "./cityConfig";
 import {
   ALL_LINES,
@@ -655,6 +661,106 @@ export function getTimeOfDayScore(tz: string): SignalResult {
       : reasons.map((r) => r.charAt(0).toUpperCase() + r.slice(1)).join(", ");
 
   return { label: "Time of Day", detail, score };
+}
+
+// ---- Nightlife ----
+export async function getNightlifeScore(city: CityConfig): Promise<NightlifeSignalResult> {
+  const fallback: NightlifeSignalResult = {
+    label: "Nightlife",
+    detail: "Nightlife data unavailable",
+    score: 0,
+    error: true,
+    spots: [],
+    topPick: "",
+  };
+
+  try {
+    // Fetch 311 noise complaints from the last 6 hours with lat/lon
+    const sixHoursAgo = new Date(Date.now() - 6 * 60 * 60 * 1000);
+    const isoStr = sixHoursAgo.toISOString().split(".")[0];
+
+    const params = new URLSearchParams({
+      $where: `complaint_type like '%Noise%' AND created_date > '${isoStr}' AND latitude IS NOT NULL`,
+      $select: "latitude,longitude",
+      $limit: "2000",
+    });
+
+    const res = await fetch(`${city.openDataEndpoint}?${params}`, {
+      next: { revalidate: 0 },
+      signal: AbortSignal.timeout(10000),
+    });
+
+    type NoiseRecord = { latitude: string; longitude: string };
+    const complaints: NoiseRecord[] = res.ok ? await res.json() : [];
+
+    // Get current hour in NYC time
+    const nycNow = new Date(new Date().toLocaleString("en-US", { timeZone: city.timezoneTZ }));
+    const currentHour = nycNow.getHours();
+    const isWeekend = [0, 5, 6].includes(nycNow.getDay()); // Sun, Fri, Sat
+
+    // Score each neighborhood
+    const spots = NIGHTLIFE_NEIGHBORHOODS.map((n) => {
+      const [minLat, maxLat, minLon, maxLon] = n.bounds;
+
+      // Count noise complaints within bounds
+      const noiseCount = complaints.filter((c) => {
+        const lat = parseFloat(c.latitude);
+        const lon = parseFloat(c.longitude);
+        return lat >= minLat && lat <= maxLat && lon >= minLon && lon <= maxLon;
+      }).length;
+
+      // Time-of-day factor: how close are we to peak?
+      const hoursToPeak = ((n.peakHour - currentHour + 24) % 24);
+      const isNightTime = currentHour >= 20 || currentHour < 4;
+      const timeFactor =
+        hoursToPeak === 0 ? 1.0 :
+        hoursToPeak <= 1 ? 0.9 :
+        hoursToPeak <= 2 ? 0.7 :
+        hoursToPeak <= 3 ? 0.5 :
+        hoursToPeak >= 21 ? 0.6 : // just past peak
+        isNightTime ? 0.3 : 0.1;
+
+      // Weekend bonus
+      const weekendBonus = isWeekend ? 15 : 0;
+
+      // Noise score: normalize to ~0-60 points (some neighborhoods cap at ~20 complaints/6h)
+      const noiseScore = Math.min(60, noiseCount * 3);
+
+      // Time score: 0-40 points
+      const timeScore = Math.round(timeFactor * 40);
+
+      const activityScore = Math.min(100, noiseScore + timeScore + weekendBonus);
+      const hot = isActive(n.peakHour, currentHour) || activityScore >= 50;
+
+      return {
+        name: n.name,
+        borough: n.borough,
+        vibe: n.vibe,
+        bestFor: n.bestFor,
+        lines: n.lines,
+        peakLabel: peakLabel(n.peakHour),
+        activityScore,
+        noiseCount,
+        isHot: hot,
+      };
+    });
+
+    // Sort by activity score descending
+    spots.sort((a, b) => b.activityScore - a.activityScore);
+
+    const topPick = spots[0]?.name ?? "";
+    const hotCount = spots.filter((s) => s.isHot).length;
+
+    return {
+      label: "Nightlife",
+      detail: hotCount > 0 ? `${hotCount} neighborhood${hotCount === 1 ? "" : "s"} are active tonight` : "Quiet night across the city",
+      score: Math.min(10, Math.round(spots.slice(0, 3).reduce((s, n) => s + n.activityScore, 0) / 30)),
+      spots,
+      topPick,
+    };
+  } catch {
+    return fallback;
+  }
 }
 
 // ---- Total score ----
