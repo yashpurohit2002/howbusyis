@@ -20,19 +20,19 @@ export async function GET(request: Request) {
     return NextResponse.json({ error: "Missing query" }, { status: 400 });
   }
 
-  // Append NYC context if not already present
-  const query = /new york|nyc|manhattan|brooklyn|queens|bronx|staten island/i.test(q)
-    ? q
-    : `${q}, New York City`;
+  // Always anchor to NYC — always append borough/city context and restrict to US
+  const hasNycContext = /new york|nyc|manhattan|brooklyn|queens|bronx|staten island/i.test(q);
+  const query = hasNycContext ? q : `${q}, New York City, NY`;
 
   try {
     const params = new URLSearchParams({
       q: query,
       format: "jsonv2",
-      limit: suggest ? "6" : "1",
+      limit: suggest ? "8" : "1",
       viewbox: NYC_VIEWBOX,
       bounded: "1",
-      addressdetails: "0",
+      countrycodes: "us",
+      addressdetails: "1",
     });
 
     const res = await fetch(
@@ -56,22 +56,35 @@ export async function GET(request: Request) {
       );
     }
 
+    // Build a clean display name from address details
+    type NominatimItem = {
+      lat: string; lon: string; display_name?: string;
+      address?: { house_number?: string; road?: string; neighbourhood?: string; suburb?: string; city_district?: string; borough?: string };
+    };
+    const cleanName = (item: NominatimItem): string => {
+      const a = item.address;
+      if (!a) return item.display_name ?? q;
+      const street = [a.house_number, a.road].filter(Boolean).join(" ");
+      const area = a.neighbourhood ?? a.suburb ?? a.city_district ?? a.borough ?? "";
+      return [street, area].filter(Boolean).join(", ") || (item.display_name ?? q);
+    };
+
     if (suggest) {
-      const results: GeocodeResult[] = data.map((item: { lat: string; lon: string; display_name?: string }) => ({
+      const results: GeocodeResult[] = data.map((item: NominatimItem) => ({
         lat: parseFloat(item.lat),
         lon: parseFloat(item.lon),
-        displayName: item.display_name ?? q,
+        displayName: cleanName(item),
       }));
       return NextResponse.json(results, {
         headers: { "Cache-Control": "public, max-age=300" },
       });
     }
 
-    const top = data[0];
+    const top = data[0] as NominatimItem;
     const result: GeocodeResult = {
       lat: parseFloat(top.lat),
       lon: parseFloat(top.lon),
-      displayName: top.display_name ?? q,
+      displayName: cleanName(top),
     };
 
     return NextResponse.json(result, {

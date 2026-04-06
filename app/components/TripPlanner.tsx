@@ -38,8 +38,15 @@ function walkMin(meters: number): number {
   return Math.round(meters / 80); // ~80m per min walking
 }
 
-function mapsUrl(from: string, to: string): string {
-  const params = new URLSearchParams({ api: "1", origin: from, destination: to, travelmode: "transit" });
+function mapsUrl(
+  from: string, to: string,
+  fromGeo?: { lat: number; lon: number } | null,
+  toGeo?: { lat: number; lon: number } | null,
+): string {
+  // Use coordinates when available so Google Maps doesn't re-geocode and drift
+  const origin = fromGeo ? `${fromGeo.lat},${fromGeo.lon}` : from;
+  const destination = toGeo ? `${toGeo.lat},${toGeo.lon}` : to;
+  const params = new URLSearchParams({ api: "1", origin, destination, travelmode: "transit" });
   return `https://www.google.com/maps/dir/?${params}`;
 }
 
@@ -77,7 +84,7 @@ function shortName(displayName: string): string {
 interface PlaceInputProps {
   label: string;
   value: string;
-  onChange: (v: string) => void;
+  onChange: (v: string, geo?: Suggestion) => void;
   placeholder: string;
 }
 
@@ -101,13 +108,13 @@ function PlaceInput({ label, value, onChange, placeholder }: PlaceInputProps) {
   }, []);
 
   const handleChange = (v: string) => {
-    onChange(v);
+    onChange(v); // clear cached geo when user types manually
     if (debounceRef.current) clearTimeout(debounceRef.current);
     debounceRef.current = setTimeout(() => fetchSuggestions(v), 300);
   };
 
   const select = (s: Suggestion) => {
-    onChange(shortName(s.displayName));
+    onChange(s.displayName, s); // pass full suggestion with coords
     setSuggestions([]);
     setOpen(false);
   };
@@ -214,6 +221,8 @@ interface StepInfo {
 export function TripPlanner({ mta, onHighlight }: Props) {
   const [from, setFrom] = useState("");
   const [to, setTo] = useState("");
+  const [fromCachedGeo, setFromCachedGeo] = useState<Suggestion | null>(null);
+  const [toCachedGeo, setToCachedGeo] = useState<Suggestion | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [result, setResult] = useState<RouteResult | null>(null);
@@ -228,16 +237,25 @@ export function TripPlanner({ mta, onHighlight }: Props) {
     onHighlight([]);
 
     try {
-      const [fromRes, toRes] = await Promise.all([
-        fetch(`/api/geocode?q=${encodeURIComponent(from)}`),
-        fetch(`/api/geocode?q=${encodeURIComponent(to)}`),
-      ]);
+      // Use cached coords from autocomplete selection when available
+      let fromGeo: GeoResult;
+      let toGeo: GeoResult;
 
-      if (!fromRes.ok) { setError((await fromRes.json()).error ?? `Could not find "${from}"`); return; }
-      if (!toRes.ok)   { setError((await toRes.json()).error ?? `Could not find "${to}"`);   return; }
+      if (fromCachedGeo) {
+        fromGeo = fromCachedGeo;
+      } else {
+        const res = await fetch(`/api/geocode?q=${encodeURIComponent(from)}`);
+        if (!res.ok) { setError((await res.json()).error ?? `Could not find "${from}"`); return; }
+        fromGeo = await res.json();
+      }
 
-      const fromGeo: GeoResult = await fromRes.json();
-      const toGeo: GeoResult = await toRes.json();
+      if (toCachedGeo) {
+        toGeo = toCachedGeo;
+      } else {
+        const res = await fetch(`/api/geocode?q=${encodeURIComponent(to)}`);
+        if (!res.ok) { setError((await res.json()).error ?? `Could not find "${to}"`); return; }
+        toGeo = await res.json();
+      }
 
       const totalDistM = distM(fromGeo.lat, fromGeo.lon, toGeo.lat, toGeo.lon);
       const walkable = totalDistM < 800;
@@ -425,8 +443,18 @@ export function TripPlanner({ mta, onHighlight }: Props) {
   return (
     <div className="space-y-3">
       <div className="flex gap-2 items-end flex-wrap sm:flex-nowrap">
-        <PlaceInput label="From" value={from} onChange={setFrom} placeholder="Address, restaurant, landmark..." />
-        <PlaceInput label="To" value={to} onChange={setTo} placeholder="Bar, museum, friend's place..." />
+        <PlaceInput
+          label="From"
+          value={from}
+          onChange={(v, geo) => { setFrom(v); setFromCachedGeo(geo ?? null); }}
+          placeholder="Address, restaurant, landmark..."
+        />
+        <PlaceInput
+          label="To"
+          value={to}
+          onChange={(v, geo) => { setTo(v); setToCachedGeo(geo ?? null); }}
+          placeholder="Bar, museum, friend's place..."
+        />
         <button
           onClick={handlePlan}
           disabled={loading || !from.trim() || !to.trim()}
@@ -502,7 +530,7 @@ export function TripPlanner({ mta, onHighlight }: Props) {
               Est. trip: <span className="text-white/70 font-medium">≈{result.totalEstMin} min</span>
             </span>
             <a
-              href={mapsUrl(from, to)}
+              href={mapsUrl(from, to, fromCachedGeo, toCachedGeo)}
               target="_blank"
               rel="noopener noreferrer"
               className="flex items-center gap-1.5 text-xs text-white/30 hover:text-white/60 transition-colors"
