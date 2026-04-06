@@ -416,8 +416,10 @@ async function getNycOpenDataEvents(city: CityConfig): Promise<EventItem[]> {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const data: any[] = await res.json();
 
+    const NYC_PARKS_YOUTH = /\b(little league|youth|junior|u\d{1,2}|under \d+|\d+ and under|kids|children|peewee|pee.?wee|age \d|u-\d|baseball.*older|monroe cohen|permit)\b/i;
+
     return data
-      .filter((e) => e.event_name && e.start_date_time)
+      .filter((e) => e.event_name && e.start_date_time && !NYC_PARKS_YOUTH.test(e.event_name))
       .map((e, i) => {
         const boroughRaw: string = e.event_borough ?? "Manhattan";
         const borough =
