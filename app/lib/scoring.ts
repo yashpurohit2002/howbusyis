@@ -51,19 +51,19 @@ function parseAffectedRoutes(buffer: ArrayBuffer): string[] {
     .map(([route]) => route);
 }
 
-// NYC baseline: 1-3 delayed lines is normal, 4-6 is elevated, 7+ is bad
+// NYC baseline: some lines are always delayed. Thresholds set high intentionally.
 function mtaChaosLevel(count: number): MtaSignalResult["chaosLevel"] {
-  if (count <= 3) return "normal";
-  if (count <= 6) return "elevated";
+  if (count <= 6) return "normal";
+  if (count <= 12) return "elevated";
   return "bad";
 }
 
 function mtaChaosLabel(level: MtaSignalResult["chaosLevel"], count: number): string {
   if (count === 0) return "All lines running smooth";
   const base = `${count} line${count === 1 ? "" : "s"} with issues`;
-  if (level === "normal") return `${base} -- normal for NYC`;
-  if (level === "elevated") return `${base} -- more than usual`;
-  return `${base} -- rough out there`;
+  if (level === "normal") return `${base} -- par for the course`;
+  if (level === "elevated") return `${base} -- busier than usual`;
+  return `${base} -- actually bad today`;
 }
 
 export async function getMtaScore(_city: CityConfig): Promise<MtaSignalResult> {
