@@ -1,36 +1,83 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# howbusy.is/nyc
 
-## Getting Started
+How busy is NYC right now? One score, five signals, zero fluff.
 
-First, run the development server:
+Inspired by [12seasons.nyc](https://12seasons.nyc) -- one clever insight, real live data, dead-simple UI.
+
+## What it does
+
+Pulls live data from five sources, computes a 0-100 busy score, and gives you a verdict:
+
+| Score | Verdict |
+|-------|---------|
+| 0-20 | Dead quiet. Did everyone leave? |
+| 21-40 | Chill. NYC is being reasonable today. |
+| 41-60 | Buzzing. Normal NYC chaos. |
+| 61-80 | Hectic. Touch grass tomorrow. |
+| 81-100 | Pure chaos. Godspeed. |
+
+**Data signals:**
+- MTA subway alerts (GTFS-RT feed, no key required)
+- Weather via OpenWeatherMap
+- Events via Ticketmaster Discovery API
+- NYC 311 noise complaints (NYC Open Data, no key required)
+- Time-of-day heuristic (rush hour, Friday night, etc.)
+
+## Setup
+
+```bash
+git clone https://github.com/yashkarthik/howbusyis
+cd howbusyis
+npm install
+cp .env.example .env.local
+```
+
+Fill in `.env.local`:
+
+```
+OPENWEATHER_API_KEY=   # openweathermap.org/api - free tier
+TICKETMASTER_API_KEY=  # developer.ticketmaster.com - free tier
+```
+
+MTA and NYC Open Data need no keys.
 
 ```bash
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Open [http://localhost:3000](http://localhost:3000).
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## Deploy to Vercel
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+```bash
+npx vercel --prod
+```
 
-## Learn More
+Set `OPENWEATHER_API_KEY` and `TICKETMASTER_API_KEY` in your Vercel project environment variables.
 
-To learn more about Next.js, take a look at the following resources:
+## Architecture
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+```
+app/
+  page.tsx                  # Client shell, auto-refreshes every 5 min
+  api/busy/route.ts         # Server route: fans out to all APIs, returns JSON
+  og/route.tsx              # Edge route: generates OG image for sharing
+  lib/
+    cityConfig.ts           # City config object (extensible to SF, Chicago, etc.)
+    types.ts                # Types + verdict mapping
+    scoring.ts              # Per-signal scoring functions
+  components/
+    BusyDashboard.tsx       # Main UI
+    ScoreBar.tsx            # Animated score bar
+    SignalCard.tsx          # Individual signal cards
+    ShareButton.tsx         # Share / copy button
+```
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+## Adding a new city
 
-## Deploy on Vercel
+1. Add an entry to `CITY_CONFIG` in `app/lib/cityConfig.ts`
+2. Create `app/[city]/page.tsx` that passes the city key to the API
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+## License
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+MIT
