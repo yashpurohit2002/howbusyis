@@ -110,7 +110,7 @@ export function TripPlanner({ mta, onHighlight }: Props) {
 
     if (!fromData || !toData) {
       setResult({
-        description: `Couldn't find "${!fromData ? from : to}" -- try a different neighborhood name.`,
+        description: `Couldn't find "${!fromData ? from : to}". Try a different neighborhood name.`,
         fromLines: [],
         toLines: [],
         delayedLines: [],
@@ -130,7 +130,7 @@ export function TripPlanner({ mta, onHighlight }: Props) {
       const delayedStr = delayedLines.join(", ");
       description += ` The ${delayedStr} ${delayedLines.length === 1 ? "is" : "are"} showing delays right now. Leave extra time.`;
     } else if (mta.error) {
-      description += " MTA status is unavailable right now -- check the app before leaving.";
+      description += " MTA status is unavailable right now. Check the app before leaving.";
     } else {
       description += " All relevant lines are running well.";
     }

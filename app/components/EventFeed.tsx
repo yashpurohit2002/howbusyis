@@ -25,6 +25,10 @@ function LineBadge({ line }: { line: string }) {
   );
 }
 
+function mapsUrl(address: string) {
+  return `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(address)}`;
+}
+
 export function EventFeed({ events, textClass }: Props) {
   if (events.length === 0) {
     return (
@@ -42,10 +46,25 @@ export function EventFeed({ events, textClass }: Props) {
           return (
             <div key={ev.id} className="px-4 py-3 hover:bg-white/5 transition-colors">
               <div className="flex items-start justify-between gap-2">
-                <div className="min-w-0">
-                  <p className="text-sm font-medium text-white truncate">{ev.name}</p>
+                <div className="min-w-0 flex-1">
+                  {/* Event name -- link to TM if available */}
+                  {ev.url ? (
+                    <a
+                      href={ev.url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-sm font-medium text-white hover:text-white/70 transition-colors truncate block"
+                    >
+                      {ev.name} ↗
+                    </a>
+                  ) : (
+                    <p className="text-sm font-medium text-white truncate">{ev.name}</p>
+                  )}
                   <p className="text-xs text-white/40 truncate">
-                    {ev.venue} &middot; {ev.neighborhood}
+                    {ev.venue}
+                    {ev.source === "nyc-open-data" && (
+                      <span className="ml-1.5 text-[10px] text-white/25">NYC permit</span>
+                    )}
                   </p>
                 </div>
                 <div className="shrink-0 text-right space-y-1">
@@ -55,16 +74,31 @@ export function EventFeed({ events, textClass }: Props) {
                   </span>
                 </div>
               </div>
-              {ev.lines.length > 0 && (
-                <div className="flex items-center gap-1 mt-1.5">
-                  <span className="text-[10px] text-white/25">Lines:</span>
-                  <div className="flex gap-0.5">
-                    {ev.lines.slice(0, 6).map((l) => (
-                      <LineBadge key={l} line={l} />
-                    ))}
+
+              <div className="flex items-center justify-between mt-1.5">
+                {ev.lines.length > 0 && (
+                  <div className="flex items-center gap-1">
+                    <span className="text-[10px] text-white/25">Lines:</span>
+                    <div className="flex gap-0.5">
+                      {ev.lines.slice(0, 6).map((l) => (
+                        <LineBadge key={l} line={l} />
+                      ))}
+                    </div>
                   </div>
-                </div>
-              )}
+                )}
+
+                {/* Directions link */}
+                {ev.address && (
+                  <a
+                    href={mapsUrl(ev.address)}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-[10px] text-white/25 hover:text-white/50 transition-colors ml-auto"
+                  >
+                    Directions
+                  </a>
+                )}
+              </div>
             </div>
           );
         })}

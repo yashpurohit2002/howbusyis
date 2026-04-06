@@ -50,7 +50,7 @@ export function computeGoOutVerdict(data: BusyResponse): GoOutVerdict {
   if (mtaChaos === "bad") {
     return {
       verdict: "MAYBE",
-      reason: "Several lines are having a rough day. Check your specific route -- it might be fine.",
+      reason: "Several lines are having a rough day. Check your specific route. It might be fine.",
       color: "text-orange-400",
     };
   }
@@ -89,7 +89,7 @@ export function computeGoOutVerdict(data: BusyResponse): GoOutVerdict {
   if (score <= 25) {
     return {
       verdict: "YES",
-      reason: "The city is unusually calm right now. Enjoy it -- it won't last.",
+      reason: "The city is unusually calm right now. Enjoy it. It won't last.",
       color: "text-emerald-400",
     };
   }

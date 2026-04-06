@@ -48,6 +48,9 @@ export interface EventItem {
   startTime: string;
   crowdSize: "Small" | "Medium" | "Packed";
   lines: string[];
+  url?: string;
+  address?: string;
+  source: "ticketmaster" | "nyc-open-data";
 }
 
 export interface EventsSignalResult extends SignalResult {

@@ -37,7 +37,7 @@ function SearchResults({ result }: { result: CitiBikeSearchResponse }) {
     <div className="space-y-3 pt-1">
       {/* Summary */}
       <div className="flex items-center justify-between">
-        <p className="text-xs text-white/40 capitalize">{result.neighborhood} -- within {result.radiusFt} ft</p>
+        <p className="text-xs text-white/40 capitalize">{result.neighborhood}, within {result.radiusFt} ft</p>
         <span className={`text-sm font-bold ${pct2color(result.overallPct)}`}>
           {result.overallPct}% available
         </span>

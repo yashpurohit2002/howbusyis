@@ -61,9 +61,9 @@ function mtaChaosLevel(count: number): MtaSignalResult["chaosLevel"] {
 function mtaChaosLabel(level: MtaSignalResult["chaosLevel"], count: number): string {
   if (count === 0) return "All lines running smooth";
   const base = `${count} line${count === 1 ? "" : "s"} with issues`;
-  if (level === "normal") return `${base} -- par for the course`;
-  if (level === "elevated") return `${base} -- busier than usual`;
-  return `${base} -- actually bad today`;
+  if (level === "normal") return `${base}, par for the course`;
+  if (level === "elevated") return `${base}, busier than usual`;
+  return `${base}, actually bad today`;
 }
 
 export async function getMtaScore(_city: CityConfig): Promise<MtaSignalResult> {
@@ -198,20 +198,20 @@ export async function getWeatherScore(
     let impact = "";
     const parts: string[] = [];
 
-    if (id >= 200 && id < 300) { score += 4; parts.push("Thunderstorms -- stay inside if you can"); }
-    else if (id >= 502 && id < 510) { score += 3; parts.push("Heavy rain -- you will get wet"); }
-    else if (id >= 300 && id < 510) { score += 2; parts.push("Light rain -- sidewalks will be gross, bring an umbrella"); }
-    else if (id >= 600 && id < 700) { score += 4; parts.push("Snow -- budget extra commute time"); }
-    else if (id >= 700 && id < 800) { score += 1; parts.push("Foggy -- visibility low"); }
+    if (id >= 200 && id < 300) { score += 4; parts.push("Thunderstorms. Stay inside if you can."); }
+    else if (id >= 502 && id < 510) { score += 3; parts.push("Heavy rain. You will get wet."); }
+    else if (id >= 300 && id < 510) { score += 2; parts.push("Light rain. Sidewalks will be gross, bring an umbrella."); }
+    else if (id >= 600 && id < 700) { score += 4; parts.push("Snow. Budget extra commute time."); }
+    else if (id >= 700 && id < 800) { score += 1; parts.push("Foggy. Visibility is low."); }
 
-    if (windSpeed > 25) { score += 2; parts.push("Very windy -- your umbrella will betray you"); }
+    if (windSpeed > 25) { score += 2; parts.push("Very windy. Your umbrella will betray you."); }
     else if (windSpeed > 20) { score += 1; parts.push(`Windy at ${windSpeed} mph`); }
 
-    if (temp > 95) { score += 3; parts.push(`${temp}F -- brutal heat, stay hydrated`); }
-    else if (temp < 15) { score += 3; parts.push(`${temp}F -- dangerously cold`); }
+    if (temp > 95) { score += 3; parts.push(`${temp}F, brutal heat. Stay hydrated.`); }
+    else if (temp < 15) { score += 3; parts.push(`${temp}F, dangerously cold.`); }
 
     const isSummer = [5, 6, 7, 8].includes(new Date().getMonth());
-    if (humidity > 80 && isSummer) { score += 1; parts.push("Swamp air -- you will sweat immediately upon exiting"); }
+    if (humidity > 80 && isSummer) { score += 1; parts.push("Swamp air. You will sweat immediately upon exiting."); }
 
     if (id === 800 && temp >= 60 && temp <= 78) { score = Math.max(0, score - 1); }
 
@@ -311,34 +311,47 @@ export async function getEventsScore(
 
     const rawEvents = data._embedded?.events ?? [];
 
-    const events: EventItem[] = rawEvents
-      .slice(0, 20)
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      .map((e: any) => {
-        const venueName: string = e._embedded?.venues?.[0]?.name ?? "";
-        const venueCity: string = e._embedded?.venues?.[0]?.city?.name ?? "New York";
-        const borough = inferBorough(venueName, venueCity);
-        const neighborhood = inferNeighborhood(venueName, venueCity);
-        const nhoodData = NEIGHBORHOOD_LINES[neighborhood] ?? NEIGHBORHOOD_LINES["midtown"];
-        const capacity: number | undefined = e._embedded?.venues?.[0]?.capacity;
-        const startUtc: string = e.dates?.start?.dateTime ?? new Date().toISOString();
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const tmEvents: EventItem[] = rawEvents.slice(0, 20).map((e: any) => {
+      const venueName: string = e._embedded?.venues?.[0]?.name ?? "";
+      const venueCity: string = e._embedded?.venues?.[0]?.city?.name ?? "New York";
+      const venueAddress: string = [
+        e._embedded?.venues?.[0]?.address?.line1,
+        venueCity,
+        "NY",
+      ].filter(Boolean).join(", ");
+      const borough = inferBorough(venueName, venueCity);
+      const neighborhood = inferNeighborhood(venueName, venueCity);
+      const nhoodData = NEIGHBORHOOD_LINES[neighborhood] ?? NEIGHBORHOOD_LINES["midtown"];
+      const capacity: number | undefined = e._embedded?.venues?.[0]?.capacity;
+      const startUtc: string = e.dates?.start?.dateTime ?? new Date().toISOString();
 
-        return {
-          id: e.id,
-          name: e.name,
-          venue: venueName || "NYC Venue",
-          neighborhood,
-          borough,
-          startTime: new Date(startUtc).toLocaleTimeString("en-US", {
-            hour: "numeric",
-            minute: "2-digit",
-            hour12: true,
-            timeZone: city.timezoneTZ,
-          }),
-          crowdSize: crowdBucket(capacity),
-          lines: nhoodData?.lines ?? [],
-        };
-      });
+      return {
+        id: e.id,
+        name: e.name,
+        venue: venueName || "NYC Venue",
+        neighborhood,
+        borough,
+        startTime: new Date(startUtc).toLocaleTimeString("en-US", {
+          hour: "numeric",
+          minute: "2-digit",
+          hour12: true,
+          timeZone: city.timezoneTZ,
+        }),
+        crowdSize: crowdBucket(capacity),
+        lines: nhoodData?.lines ?? [],
+        url: e.url ?? undefined,
+        address: venueAddress,
+        source: "ticketmaster" as const,
+      };
+    });
+
+    // Merge with NYC Open Data special events (street fairs, parades, etc.)
+    const openDataEvents = await getNycOpenDataEvents(city);
+
+    const events = [...tmEvents, ...openDataEvents]
+      .sort((a, b) => a.startTime.localeCompare(b.startTime))
+      .slice(0, 25);
 
     const byBorough: Record<string, number> = {};
     for (const ev of events) {
@@ -356,10 +369,70 @@ export async function getEventsScore(
       score,
       events,
       byBorough,
-      totalToday: rawEvents.length,
+      totalToday: rawEvents.length + openDataEvents.length,
     };
   } catch {
     return { ...fallback, detail: "Ticketmaster went quiet", error: true };
+  }
+}
+
+// ---- NYC Open Data Special Event Permits ----
+// Free, no key -- covers street fairs, parades, block parties, film shoots, etc.
+async function getNycOpenDataEvents(city: CityConfig): Promise<EventItem[]> {
+  try {
+    const now = new Date();
+    const today = now.toISOString().split("T")[0];
+
+    const params = new URLSearchParams({
+      $where: `start_date_time >= '${today}T00:00:00' AND start_date_time <= '${today}T23:59:59'`,
+      $limit: "30",
+      $select: "event_name,start_date_time,event_location,event_borough,event_type",
+    });
+
+    const res = await fetch(
+      `https://data.cityofnewyork.us/resource/tvpp-9vvx.json?${params}`,
+      { next: { revalidate: 0 }, signal: AbortSignal.timeout(6000) }
+    );
+    if (!res.ok) return [];
+
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const data: any[] = await res.json();
+
+    return data
+      .filter((e) => e.event_name && e.start_date_time)
+      .map((e, i) => {
+        const boroughRaw: string = e.event_borough ?? "Manhattan";
+        const borough =
+          boroughRaw === "MANHATTAN" ? "Manhattan" :
+          boroughRaw === "BROOKLYN" ? "Brooklyn" :
+          boroughRaw === "QUEENS" ? "Queens" :
+          boroughRaw === "BRONX" ? "Bronx" :
+          boroughRaw === "STATEN ISLAND" ? "Staten Island" :
+          "Manhattan";
+
+        const neighborhood = borough.toLowerCase();
+        const nhoodData = NEIGHBORHOOD_LINES[neighborhood] ?? NEIGHBORHOOD_LINES["midtown"];
+
+        return {
+          id: `nyc-${i}-${e.start_date_time}`,
+          name: e.event_name,
+          venue: e.event_location ?? borough,
+          neighborhood,
+          borough,
+          startTime: new Date(e.start_date_time).toLocaleTimeString("en-US", {
+            hour: "numeric",
+            minute: "2-digit",
+            hour12: true,
+            timeZone: city.timezoneTZ,
+          }),
+          crowdSize: "Medium" as const,
+          lines: nhoodData?.lines ?? [],
+          address: e.event_location ?? undefined,
+          source: "nyc-open-data" as const,
+        };
+      });
+  } catch {
+    return [];
   }
 }
 
@@ -483,9 +556,9 @@ export async function getCitiBikeScore(): Promise<CitiBikeSignalResult> {
       });
 
     let detail: string;
-    if (availabilityPct < 30) detail = `${availabilityPct}% bikes left -- city is out and moving`;
-    else if (availabilityPct > 70) detail = `${availabilityPct}% available -- people are staying in`;
-    else detail = `${availabilityPct}% availability -- normal flow`;
+    if (availabilityPct < 30) detail = `${availabilityPct}% bikes left. City is out and moving.`;
+    else if (availabilityPct > 70) detail = `${availabilityPct}% available. People are staying in.`;
+    else detail = `${availabilityPct}% availability. Normal flow.`;
 
     return { label: "Citi Bike", detail, score: mobilityScore, availabilityPct, availableBikes: totalBikes, totalDocks, regions };
   } catch {
@@ -529,7 +602,7 @@ export async function getDsnyScore(city: CityConfig): Promise<DsnySignalResult> 
 
     return {
       label: "Streets",
-      detail: `${streetLabel} -- ${count} DSNY complaint${count === 1 ? "" : "s"} (last 48h)`,
+      detail: `${streetLabel}, ${count} DSNY complaint${count === 1 ? "" : "s"} (last 48h)`,
       score: Math.min(10, score),
       streetLabel,
       missedFills: count,
