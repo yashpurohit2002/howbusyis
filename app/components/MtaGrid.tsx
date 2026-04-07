@@ -38,12 +38,51 @@ const LINE_GROUPS: Record<string, string> = {
   "S": "S shuttles between Times Sq and Grand Central",
 };
 
-const EFFECT_COPY: Record<string, string> = {
-  normal:   "Alerts are in range for NYC. Could be planned work or minor slowdowns.",
-  elevated: "More issues than usual. Worth checking before you head out.",
-  bad:      "Genuinely rough. Check your specific line before committing.",
-  unknown:  "MTA feed didn't respond. Assume delays, especially if it's rush hour.",
+const EFFECT_VARIANTS: Record<string, string[]> = {
+  normal: [
+    "Planned work and minor slowdowns. The MTA's version of 'running smoothly.'",
+    "Some alerts in the system — normal background noise for NYC.",
+    "Could be weekend track work. Could be nothing. Probably nothing.",
+    "Within the usual range. The MTA is being the MTA.",
+    "Low-grade chaos. Standard operating procedure for this city.",
+  ],
+  elevated: [
+    "More issues than usual. Pull up the MTA app before you commit to a route.",
+    "The MTA is having a moment. Not a crisis, but don't assume smooth sailing.",
+    "Something's off across the network. Give yourself a buffer.",
+    "Worth a real look before you head out. Not panic-worthy, just don't wing it.",
+    "Above-average delays. The kind where you leave 15 minutes early just in case.",
+  ],
+  bad: [
+    "This is the real thing. Check your specific line before you leave.",
+    "The MTA is having an actual day today. Seriously look before you go.",
+    "Widespread issues across the system. Walk if it's under 20 blocks.",
+    "If you can flex on timing, now's the time to flex. Otherwise, budget extra.",
+    "Not great out there. The kind of day where a cab doesn't feel crazy.",
+  ],
+  unknown: [
+    "MTA feed went quiet. Assume delays, especially during rush hour.",
+    "Can't reach the feed right now. Assume the worst, hope for the best. Very NYC.",
+    "No data. That's usually not a good sign. Plan like it's rough and be pleasantly surprised.",
+  ],
 };
+
+// Line-specific context for the most iconic/problematic lines
+const LINE_QUIPS: Record<string, string> = {
+  "L": "The L runs one tube under the river. When it has issues, there's no backup route.",
+  "G": "The G only connects Brooklyn to Queens — skips Manhattan entirely. No easy alternatives.",
+  "7": "The 7 is your only direct line deep into Queens. It goes far and there's no substitute.",
+  "A": "The A covers more ground than any other line. Issues here affect a huge chunk of the city.",
+  "1": "The 1 is the backbone of the Upper West Side. Not much to fall back on when it's down.",
+  "4": "The 4 and 5 carry the heaviest rush hour loads. Delays here stack up fast.",
+  "J": "The J and Z run infrequently. When one's delayed, the wait gets long quickly.",
+  "S": "The S shuttle is short but uniquely annoying when down — makes Times Sq to Grand Central a hassle.",
+};
+
+function pickVariant(variants: string[], key: string): string {
+  const hash = key.split("").reduce((acc, c) => acc + c.charCodeAt(0), 0);
+  return variants[hash % variants.length];
+}
 
 interface Props {
   mta: MtaSignalResult;
@@ -170,12 +209,18 @@ export function MtaGrid({ mta, highlightLines = [] }: Props) {
 
           {LINE_GROUPS[selectedLine] && (
             <p className="text-xs text-white/50 leading-relaxed">
-              {LINE_GROUPS[selectedLine]}. Delays on one can ripple across the group.
+              {LINE_GROUPS[selectedLine]}. A delay on one often ripples across the whole group.
+            </p>
+          )}
+
+          {LINE_QUIPS[selectedLine] && (
+            <p className="text-xs text-white/40 leading-relaxed italic">
+              {LINE_QUIPS[selectedLine]}
             </p>
           )}
 
           <p className="text-xs text-white/40 leading-relaxed">
-            {EFFECT_COPY[mta.chaosLevel ?? "unknown"]}
+            {pickVariant(EFFECT_VARIANTS[mta.chaosLevel ?? "unknown"] ?? EFFECT_VARIANTS.unknown, selectedLine)}
           </p>
 
           <a
