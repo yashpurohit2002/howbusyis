@@ -55,15 +55,18 @@ export function EventFeed({ events, textClass }: Props) {
     );
   }
 
-  // Deduplicate: same name at the same venue = one row with expandable times
-  const seen = new Map<string, { event: EventItem; times: string[] }>();
+  // Deduplicate: same name at the same venue = one row with expandable times+links
+  type ShowTime = { time: string; url?: string };
+  const seen = new Map<string, { event: EventItem; shows: ShowTime[] }>();
   for (const ev of events) {
     const key = `${ev.name.toLowerCase().trim()}|${ev.venue.toLowerCase().trim()}`;
     const existing = seen.get(key);
     if (existing) {
-      if (!existing.times.includes(ev.startTime)) existing.times.push(ev.startTime);
+      if (!existing.shows.some((s) => s.time === ev.startTime)) {
+        existing.shows.push({ time: ev.startTime, url: ev.url });
+      }
     } else {
-      seen.set(key, { event: ev, times: [ev.startTime] });
+      seen.set(key, { event: ev, shows: [{ time: ev.startTime, url: ev.url }] });
     }
   }
   const deduped = Array.from(seen.values());
@@ -87,7 +90,7 @@ export function EventFeed({ events, textClass }: Props) {
         </div>
       )}
       <div className="max-h-72 overflow-y-auto divide-y divide-white/5">
-        {deduped.map(({ event: ev, times }) => {
+        {deduped.map(({ event: ev, shows }) => {
           const crowd = CROWD_CONFIG[ev.crowdSize];
           const major = isMajorVenue(ev.venue);
           const key = `${ev.name.toLowerCase().trim()}|${ev.venue.toLowerCase().trim()}`;
@@ -109,20 +112,32 @@ export function EventFeed({ events, textClass }: Props) {
                     ) : (
                       <p className="text-sm font-medium text-white truncate">{ev.name}</p>
                     )}
-                    {times.length > 1 && (
+                    {shows.length > 1 && (
                       <button
                         onClick={() => setExpandedKey(isExpanded ? null : key)}
                         className="shrink-0 text-[10px] px-1.5 py-0.5 rounded-full bg-white/10 text-white/40 hover:bg-white/20 hover:text-white/60 transition-colors cursor-pointer"
                       >
-                        x{times.length} {isExpanded ? "▲" : "▼"}
+                        x{shows.length} {isExpanded ? "▲" : "▼"}
                       </button>
                     )}
                   </div>
                   <p className="text-xs text-white/40 truncate">{ev.venue}</p>
                   {isExpanded && (
                     <div className="flex flex-wrap gap-1.5 mt-1.5">
-                      {times.map((t) => (
-                        <span key={t} className={`text-[10px] px-1.5 py-0.5 rounded bg-white/10 ${textClass}`}>{t}</span>
+                      {shows.map((s) => (
+                        s.url ? (
+                          <a
+                            key={s.time}
+                            href={s.url}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className={`text-[10px] px-1.5 py-0.5 rounded bg-white/10 hover:bg-white/20 ${textClass} transition-colors`}
+                          >
+                            {s.time} ↗
+                          </a>
+                        ) : (
+                          <span key={s.time} className={`text-[10px] px-1.5 py-0.5 rounded bg-white/10 ${textClass}`}>{s.time}</span>
+                        )
                       ))}
                     </div>
                   )}
