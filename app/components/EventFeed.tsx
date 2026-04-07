@@ -1,3 +1,6 @@
+"use client";
+
+import { useState } from "react";
 import { EventItem } from "@/app/lib/types";
 import { LINE_COLORS } from "@/app/lib/nyc-data";
 
@@ -52,18 +55,20 @@ export function EventFeed({ events, textClass }: Props) {
     );
   }
 
-  // Deduplicate: same name at the same venue = one row + a count badge
-  const seen = new Map<string, { event: EventItem; count: number }>();
+  // Deduplicate: same name at the same venue = one row with expandable times
+  const seen = new Map<string, { event: EventItem; times: string[] }>();
   for (const ev of events) {
     const key = `${ev.name.toLowerCase().trim()}|${ev.venue.toLowerCase().trim()}`;
     const existing = seen.get(key);
     if (existing) {
-      existing.count += 1;
+      if (!existing.times.includes(ev.startTime)) existing.times.push(ev.startTime);
     } else {
-      seen.set(key, { event: ev, count: 1 });
+      seen.set(key, { event: ev, times: [ev.startTime] });
     }
   }
   const deduped = Array.from(seen.values());
+
+  const [expandedKey, setExpandedKey] = useState<string | null>(null);
 
   const bigEvents = deduped
     .filter(({ event: e }) => e.crowdSize === "Packed" && isMajorVenue(e.venue))
@@ -82,9 +87,11 @@ export function EventFeed({ events, textClass }: Props) {
         </div>
       )}
       <div className="max-h-72 overflow-y-auto divide-y divide-white/5">
-        {deduped.map(({ event: ev, count }) => {
+        {deduped.map(({ event: ev, times }) => {
           const crowd = CROWD_CONFIG[ev.crowdSize];
           const major = isMajorVenue(ev.venue);
+          const key = `${ev.name.toLowerCase().trim()}|${ev.venue.toLowerCase().trim()}`;
+          const isExpanded = expandedKey === key;
           return (
             <div key={ev.id} className={`px-4 py-3 hover:bg-white/5 transition-colors ${major && ev.crowdSize === "Packed" ? "border-l-2 border-orange-700/60" : ""}`}>
               <div className="flex items-start justify-between gap-2">
@@ -102,13 +109,23 @@ export function EventFeed({ events, textClass }: Props) {
                     ) : (
                       <p className="text-sm font-medium text-white truncate">{ev.name}</p>
                     )}
-                    {count > 1 && (
-                      <span className="shrink-0 text-[10px] px-1.5 py-0.5 rounded-full bg-white/10 text-white/40">
-                        x{count}
-                      </span>
+                    {times.length > 1 && (
+                      <button
+                        onClick={() => setExpandedKey(isExpanded ? null : key)}
+                        className="shrink-0 text-[10px] px-1.5 py-0.5 rounded-full bg-white/10 text-white/40 hover:bg-white/20 hover:text-white/60 transition-colors cursor-pointer"
+                      >
+                        x{times.length} {isExpanded ? "▲" : "▼"}
+                      </button>
                     )}
                   </div>
                   <p className="text-xs text-white/40 truncate">{ev.venue}</p>
+                  {isExpanded && (
+                    <div className="flex flex-wrap gap-1.5 mt-1.5">
+                      {times.map((t) => (
+                        <span key={t} className={`text-[10px] px-1.5 py-0.5 rounded bg-white/10 ${textClass}`}>{t}</span>
+                      ))}
+                    </div>
+                  )}
                 </div>
                 <div className="shrink-0 text-right space-y-1">
                   <p className={`text-xs font-medium ${textClass}`}>{ev.startTime}</p>

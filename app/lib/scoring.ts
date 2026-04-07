@@ -223,7 +223,11 @@ export async function getWeatherScore(
     const isSummer = [5, 6, 7, 8].includes(new Date().getMonth());
     if (humidity > 80 && isSummer) { score += 1; parts.push("Swamp air. You will sweat immediately upon exiting."); }
 
-    if (id === 800 && temp >= 60 && temp <= 78) { score = Math.max(0, score - 1); }
+    // Nice weather draws people out — reward it
+    if (score === 0 && id >= 800 && id <= 802 && temp >= 58 && temp <= 80 && windSpeed <= 15) {
+      score = 1;
+      impact = `${temp}F and clear. Good day to be outside.`;
+    }
 
     if (parts.length === 0) {
       impact = temp >= 60 && temp <= 78 ? "Perfect weather. No excuses." : `${temp}F, ${desc}`;
@@ -400,8 +404,8 @@ export async function getEventsScore(
 // ---- NYC 311 Noise ----
 export async function getNoiseScore(city: CityConfig): Promise<SignalResult> {
   try {
-    const twelveHoursAgo = new Date(Date.now() - 12 * 60 * 60 * 1000);
-    const isoStr = twelveHoursAgo.toISOString().split(".")[0];
+    const twentyFourHoursAgo = new Date(Date.now() - 24 * 60 * 60 * 1000);
+    const isoStr = twentyFourHoursAgo.toISOString().split(".")[0];
 
     const params = new URLSearchParams({
       $where: `complaint_type like '%Noise%' AND created_date > '${isoStr}'`,
@@ -417,14 +421,14 @@ export async function getNoiseScore(city: CityConfig): Promise<SignalResult> {
     const data = await res.json();
     const count = parseInt(data?.[0]?.cnt ?? "0", 10);
 
-    // ~50 complaints/12h = quiet, ~150 = loud, 250+ = chaos
-    const score = Math.min(10, Math.round((count / 250) * 10));
+    // ~100 complaints/24h = quiet day, ~250 = active, 400+ = genuinely loud
+    const score = Math.min(10, Math.round((count / 400) * 10));
     return {
       label: "311 Noise",
       detail:
         count === 0
           ? "Eerily quiet"
-          : `${count} noise complaint${count === 1 ? "" : "s"} (last 12h)`,
+          : `${count} noise complaint${count === 1 ? "" : "s"} (last 24h)`,
       score,
     };
   } catch {
@@ -597,13 +601,15 @@ export function getTimeOfDayScore(tz: string): SignalResult {
   const isFridayNight = day === 5 && hour >= 20;
   const isSaturdayNight = day === 6 && hour >= 21;
   const isWeekendAfternoon = (day === 6 || day === 0) && hour >= 12 && hour <= 18;
+  const isWeekdayEvening = isWeekday && day !== 5 && hour >= 19 && hour <= 22; // Mon-Thu evening
   const isSundayMorning = day === 0 && hour >= 7 && hour < 11;
   const isDeepNight = hour >= 2 && hour < 6;
   const isEarlyMorning = hour >= 6 && hour < 8;
 
-  if (isFridayNight)        { score += 5; reasons.push("Friday night"); }
-  else if (isSaturdayNight) { score += 4; reasons.push("Saturday night"); }
-  else if (isRushHour)      { score += 3; reasons.push("Rush hour"); }
+  if (isFridayNight)           { score += 5; reasons.push("Friday night"); }
+  else if (isSaturdayNight)    { score += 4; reasons.push("Saturday night"); }
+  else if (isRushHour)         { score += 3; reasons.push("Rush hour"); }
+  else if (isWeekdayEvening)   { score += 2; reasons.push("Weekday evening"); }
   else if (isWeekendAfternoon) { score += 1; reasons.push("Weekend afternoon"); }
 
   if (isDeepNight)          { score -= 3; reasons.push("Middle of the night"); }

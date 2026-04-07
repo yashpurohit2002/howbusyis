@@ -139,6 +139,9 @@ export function BusyDashboard() {
         {/* ── Score ── */}
         <div className="text-center space-y-3">
           <div>
+            <p className="text-xs text-white/25 uppercase tracking-widest mb-1">
+              {new Date().toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric", timeZone: "America/New_York" })}
+            </p>
             <h1 className={`text-7xl sm:text-8xl font-black tracking-tight ${verdict.text} leading-none`}>
               {data.label}
             </h1>
