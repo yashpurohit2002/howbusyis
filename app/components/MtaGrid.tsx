@@ -54,11 +54,11 @@ const EFFECT_VARIANTS: Record<string, string[]> = {
     "Above-average delays. The kind where you leave 15 minutes early just in case.",
   ],
   bad: [
-    "This is the real thing. Check your specific line before you leave.",
-    "The MTA is having an actual day today. Seriously look before you go.",
-    "Widespread issues across the system. Walk if it's under 20 blocks.",
-    "If you can flex on timing, now's the time to flex. Otherwise, budget extra.",
-    "Not great out there. The kind of day where a cab doesn't feel crazy.",
+    "More alerts than usual across the system. Check your line before heading out.",
+    "The MTA is having a day. Nothing unusual for NYC, just worth a look first.",
+    "Messier than normal. Add a buffer and check your specific line — some are fine.",
+    "Widespread alerts, but not every line is affected equally. Worth a quick check.",
+    "Real delays out there. The MTA app will tell you what's actually hitting your route.",
   ],
   unknown: [
     "MTA feed went quiet. Assume delays, especially during rush hour.",
