@@ -8,8 +8,7 @@ import { ShareButton } from "./ShareButton";
 import { MtaGrid } from "./MtaGrid";
 import { TripPlanner } from "./TripPlanner";
 import { WeatherCard } from "./WeatherCard";
-import { EventFeed } from "./EventFeed";
-import { BoroughMap } from "./BoroughMap";
+import { EventsSection } from "./EventsSection";
 import { CitiBikeCard } from "./CitiBikeCard";
 import { StreetCard } from "./StreetCard";
 import { GoOutMode } from "./GoOutMode";
@@ -237,16 +236,13 @@ export function BusyDashboard() {
 
         {/* ── Events ── */}
         <section className="space-y-3">
-          <div className="flex items-center justify-between">
-            <SectionLabel>What&apos;s happening</SectionLabel>
-            <span className={`text-xs font-semibold ${verdict.text}`}>
-              {data.signals.events.detail}
-            </span>
-          </div>
-          <div className="space-y-3">
-            <EventFeed events={data.signals.events.events} textClass={verdict.text} />
-            <BoroughMap byBorough={data.signals.events.byBorough} textClass={verdict.text} />
-          </div>
+          <SectionLabel>What&apos;s happening</SectionLabel>
+          <EventsSection
+            todayEvents={data.signals.events.events}
+            todayByBorough={data.signals.events.byBorough}
+            textClass={verdict.text}
+            accentClass={verdict.text}
+          />
         </section>
 
         <div className="border-t border-white/5" />
