@@ -5,10 +5,10 @@ import { MtaSignalResult } from "@/app/lib/types";
 import { LINE_COLORS, ALL_LINES } from "@/app/lib/nyc-data";
 
 const CHAOS_BADGE: Record<string, { label: string; cls: string }> = {
-  normal:   { label: "Normal for NYC",  cls: "bg-emerald-900/60 text-emerald-400 border-emerald-800" },
-  elevated: { label: "More than usual", cls: "bg-yellow-900/60 text-yellow-400 border-yellow-800" },
-  bad:      { label: "Rough out there", cls: "bg-red-900/60 text-red-400 border-red-800" },
-  unknown:  { label: "Status unknown",  cls: "bg-white/5 text-white/30 border-white/10" },
+  normal:   { label: "Running as expected", cls: "bg-emerald-900/60 text-emerald-400 border-emerald-800" },
+  elevated: { label: "A bit messy today",   cls: "bg-yellow-900/60 text-yellow-400 border-yellow-800" },
+  bad:      { label: "Real issues out there", cls: "bg-red-900/60 text-red-400 border-red-800" },
+  unknown:  { label: "Status unknown",       cls: "bg-white/5 text-white/30 border-white/10" },
 };
 
 // Lines that share infrastructure — useful context when one is delayed

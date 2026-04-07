@@ -57,21 +57,20 @@ function parseAffectedRoutes(buffer: ArrayBuffer): string[] {
     .map(([route]) => route);
 }
 
-// NYC baseline: the GTFS-RT alerts feed includes planned service changes posted weeks
-// in advance, so 15-20 lines "affected" is the daily norm. Only lines above 15 are
-// genuinely unusual; only above 19 is actually bad.
+// NYC baseline: GTFS-RT includes planned track work posted weeks in advance.
+// 18-20 lines having some kind of alert is completely normal on any given day.
+// Only flag elevated when truly above the norm, bad when it's a real system event.
 function mtaChaosLevel(count: number): MtaSignalResult["chaosLevel"] {
-  if (count <= 15) return "normal";
-  if (count <= 19) return "elevated";
+  if (count <= 18) return "normal";
+  if (count <= 21) return "elevated";
   return "bad";
 }
 
 function mtaChaosLabel(level: MtaSignalResult["chaosLevel"], count: number): string {
   if (count === 0) return "All lines running smooth";
-  const base = `${count} line${count === 1 ? "" : "s"} with issues`;
-  if (level === "normal") return `${base}, par for the course`;
-  if (level === "elevated") return `${base}, busier than usual`;
-  return `${base}, actually bad today`;
+  if (level === "normal") return "Running as expected";
+  if (level === "elevated") return "A few more issues than usual";
+  return "Messier than a typical day";
 }
 
 export async function getMtaScore(_city: CityConfig): Promise<MtaSignalResult> {
@@ -99,14 +98,14 @@ export async function getMtaScore(_city: CityConfig): Promise<MtaSignalResult> {
     const affected = parseAffectedRoutes(buffer);
     const lineStatuses = makeLineStatuses(affected);
     const chaosLevel = mtaChaosLevel(affected.length);
-    // Baseline is 13 — the GTFS-RT feed almost always shows 13-15 lines with
-    // some kind of alert (planned work counts). Only lines above 13 are real noise.
-    const significant = Math.max(0, affected.length - 13);
+    // Baseline is 17 — 18-20 lines with alerts is a completely normal NYC day.
+    // Only lines above 17 move the score at all.
+    const significant = Math.max(0, affected.length - 17);
     const score =
       significant === 0 ? 0 :
-      significant <= 4  ? Math.round((significant / 4) * 3) :
-      significant <= 8  ? 3 + Math.round(((significant - 4) / 4) * 3) :
-      /* 9+ */ 6 + Math.min(4, significant - 8);
+      significant <= 3  ? Math.round((significant / 3) * 3) :
+      significant <= 6  ? 3 + Math.round(((significant - 3) / 3) * 3) :
+      /* 7+ */ 6 + Math.min(4, significant - 6);
 
     return {
       label: "MTA",
