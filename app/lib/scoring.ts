@@ -61,8 +61,8 @@ function parseAffectedRoutes(buffer: ArrayBuffer): string[] {
 // 18-20 lines having some kind of alert is completely normal on any given day.
 // Only flag elevated when truly above the norm, bad when it's a real system event.
 function mtaChaosLevel(count: number): MtaSignalResult["chaosLevel"] {
-  if (count <= 18) return "normal";
-  if (count <= 21) return "elevated";
+  if (count <= 20) return "normal";
+  if (count <= 22) return "elevated";
   return "bad";
 }
 
