@@ -140,7 +140,7 @@ export function findRoute(
   toLines: string[],
   fromName: string,
   toName: string
-): { description: string; transferHub?: string; directLine?: string } {
+): { description: string; transferHub?: string; directLine?: string; fromLine?: string; toLine?: string } {
   // Direct: shared line
   const shared = fromLines.filter((l) => toLines.includes(l));
   if (shared.length > 0) {
@@ -158,6 +158,8 @@ export function findRoute(
       return {
         description: `Take the ${fromMatch[0]} from ${fromName}, transfer to the ${toMatch[0]} at ${hub.name}, then ride to ${toName}.`,
         transferHub: hub.name,
+        fromLine: fromMatch[0],
+        toLine: toMatch[0],
       };
     }
   }

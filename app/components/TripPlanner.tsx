@@ -363,8 +363,8 @@ export function TripPlanner({ mta, onHighlight }: Props) {
           feed: platform?.feed,
         });
       } else if (route.transferHub) {
-        // Two-leg trip
-        const leg1Line = fromData.lines.find((l) => !toData.lines.includes(l)) ?? fromData.lines[0];
+        // Two-leg trip — use the exact lines findRoute selected to ensure they serve the transfer hub
+        const leg1Line = route.fromLine ?? fromData.lines[0];
         const leg1Dir = getGtfsDir(leg1Line, fromGeo.lat, fromGeo.lon, toGeo.lat, toGeo.lon);
         const leg1Platform = fromStation ? getPlatformForLine(fromStation.station, leg1Line) : null;
         steps.push({
@@ -377,7 +377,8 @@ export function TripPlanner({ mta, onHighlight }: Props) {
           gtfsId: leg1Platform?.gtfsId,
           feed: leg1Platform?.feed,
         });
-        const leg2Line = toData.lines.find((l) => !fromData.lines.includes(l)) ?? toData.lines[0];
+        const leg2Line = route.toLine ?? toData.lines[0];
+        // Direction for leg 2 is always toward the destination
         const leg2Dir = getGtfsDir(leg2Line, fromGeo.lat, fromGeo.lon, toGeo.lat, toGeo.lon);
         steps.push({
           type: "transfer",

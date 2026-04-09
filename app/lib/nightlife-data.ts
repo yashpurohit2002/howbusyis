@@ -86,7 +86,7 @@ export const NIGHTLIFE_NEIGHBORHOODS: NightlifeNeighborhood[] = [
     peakHour: 22,
     barDensity: 62,
     outdoor: true,
-    lines: ["A", "C", "E", "1", "2", "3"],
+    lines: ["C", "E", "1", "F", "M"],
     bounds: [40.742, 40.754, -74.005, -73.993],
   },
   {
